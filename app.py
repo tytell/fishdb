@@ -265,12 +265,15 @@ def main():
                     info_text += f" | Level: {level}"
                 st.write(info_text)
                 
-                col1, col2, col3 = st.columns([1, 3, 1])
+                fedcol, atecol, notescol, logcol = st.columns([1, 1, 3, 1])
                 
-                with col1:
+                with fedcol:
                     fed = st.checkbox("Fed", key=f"fed_{fish_id}", disabled=is_submitted)
                 
-                with col2:
+                with atecol:
+                    ate = st.checkbox("Ate", key=f"ate_{fish_id}", disabled=is_submitted)
+
+                with notescol:
                     notes = st.text_input(
                         "Notes", 
                         key=f"notes_{fish_id}", 
@@ -279,13 +282,13 @@ def main():
                         disabled=is_submitted
                     )
                 
-                with col3:
+                with logcol:
                     if is_submitted:
                         st.button("✓ Logged", key=f"btn_{fish_id}", disabled=True, use_container_width=True)
                     else:
                         if st.button("Log", key=f"btn_{fish_id}", type="primary", use_container_width=True):
                             if selected_person:
-                                if log_check(conn, check_date, selected_person, fish_id, fed, notes):
+                                if log_check(conn, check_date, selected_person, fish_id, fed, ate, notes):
                                     st.session_state.submitted_fish.add(fish_id)
                                     st.success(f"✅ Logged check for Fish {fish_id}")
                                 else:
