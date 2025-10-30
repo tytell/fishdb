@@ -1,8 +1,8 @@
-import sqlite3
 import hashlib
 import argparse
 import sys
 from getpass import getpass
+import sqlite3
 
 def hash_password(password):
     """Hash password using SHA256"""
@@ -17,7 +17,7 @@ USER_ACCESS = {
     'guest': 1
 }
 
-def add_user(username, password, access='user'):
+def add_user(username, name, password, access='user'):
     """Add a new user or update password if user already exists"""
     try:
         conn = sqlite3.connect('fish.db')
@@ -27,13 +27,13 @@ def add_user(username, password, access='user'):
         access_number = USER_ACCESS.get(access.lower(), 3)  # Default to 'user' access (3)
         
         # Check if user already exists
-        cursor.execute('SELECT username FROM People WHERE username = ?', (username,))
+        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
         user_exists = cursor.fetchone() is not None
         
         if user_exists:
             # Update existing user's password and access
             cursor.execute(
-                'UPDATE People SET password = ?, access = ? WHERE username = ?',
+                'UPDATE People SET Password = ?, Access = ? WHERE Username = ?',
                 (hashed_password, access_number, username)
             )
             conn.commit()
@@ -43,8 +43,8 @@ def add_user(username, password, access='user'):
         else:
             # Insert new user
             cursor.execute(
-                'INSERT INTO People (username, password, access) VALUES (?, ?, ?)',
-                (username, hashed_password, access_number)
+                'INSERT INTO People (Name, Username, Password, Access) VALUES (?, ?, ?, ?)',
+                (name, username, hashed_password, access_number)
             )
             conn.commit()
             conn.close()
@@ -64,7 +64,7 @@ def check_password(username, password):
         hashed_password = hash_password(password)
         
         # Check if user already exists
-        cursor.execute('SELECT username FROM People WHERE username = ?', (username,))
+        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
         user_exists = cursor.fetchone() is not None
         
         if not user_exists:
@@ -72,7 +72,7 @@ def check_password(username, password):
             conn.close()
             return False
 
-        cursor.execute('SELECT password FROM People WHERE username = ?', (username,))
+        cursor.execute('SELECT Password FROM People WHERE Username = ?', (username,))
 
         db_password = cursor.fetchone()[0]
         if hashed_password == db_password:
@@ -91,14 +91,14 @@ def remove_user(username):
         cursor = conn.cursor()
         
         # Check if user exists
-        cursor.execute('SELECT username FROM People WHERE username = ?', (username,))
+        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
         if cursor.fetchone() is None:
             print(f"✗ Error: User '{username}' does not exist!")
             conn.close()
             return False
         
         # Delete the user
-        cursor.execute('DELETE FROM People WHERE username = ?', (username,))
+        cursor.execute('DELETE FROM People WHERE Username = ?', (username,))
         conn.commit()
         conn.close()
         
@@ -114,7 +114,7 @@ def list_users():
         conn = sqlite3.connect('fish.db')
         cursor = conn.cursor()
         
-        cursor.execute('SELECT username, Name, access FROM People ORDER BY username')
+        cursor.execute('SELECT Username, Name, Access FROM People ORDER BY username')
         users = cursor.fetchall()
         conn.close()
         
@@ -159,6 +159,7 @@ User Access:
     # Add user command
     add_parser = subparsers.add_parser('add', help='Add a new user')
     add_parser.add_argument('username', help='Username to add')
+    add_parser.add_argument('name', help='Full name')
     add_parser.add_argument('-p', '--password', help='Password (will prompt if not provided)')
     add_parser.add_argument('-a', '--access', 
                            choices=['administrator', 'manager', 'user', 'limited', 'guest'],
@@ -209,7 +210,7 @@ User Access:
             print("✗ Error: Password cannot be empty!")
             sys.exit(1)
         
-        add_user(args.username, password, args.access)
+        add_user(args.username, args.name, password, args.access)
     
     elif args.command == 'check':
         if args.password:
