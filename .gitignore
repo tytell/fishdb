@@ -1,9 +1,6 @@
 # Streamlit secrets - NEVER commit this file!
 .streamlit/secrets.toml
 
-# Database file
-fish.db
-
 # Python
 __pycache__/
 *.py[cod]

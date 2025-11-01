@@ -1,6 +1,16 @@
 import streamlit as st
-import sqlite3
-import hashlib
+import os
+import sys
+import logging
+import argparse
+
+from utils.settings import DB_FILE
+from utils.dbfunctions import verify_login
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+logger.debug('Starting!')
 
 # Page configuration
 st.set_page_config(page_title="Login System", page_icon="🔐")
@@ -10,38 +20,33 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'username' not in st.session_state:
     st.session_state.username = None
+if 'conn' not in st.session_state:
+    st.session_state.conn = None
 
-def hash_password(password):
-    """Hash password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verify_login(username, password):
-    """Verify username and password against database"""
-    try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
-        
-        # Hash the input password
-        hashed_password = hash_password(password)
-        
-        # Query the database
-        cursor.execute(
-            "SELECT * FROM People WHERE username = ? AND password = ?",
-            (username, hashed_password)
-        )
-        
-        result = cursor.fetchone()
-        conn.close()
-        
-        return result is not None
-    except sqlite3.Error as e:
-        st.error(f"Database error: {e}")
-        return False
 
 def logout():
     """Logout user"""
     st.session_state.logged_in = False
     st.session_state.username = None
+
+# Get database
+
+parser = argparse.ArgumentParser(
+    description='FishDB Streamlit app')
+parser.add_argument('--bypass_login', help='Bypass login screen for testing')
+
+args = parser.parse_args()
+
+# Check if database exists
+if not os.path.exists(DB_FILE):
+    st.error(f"Database file '{DB_FILE}' not found!")
+    st.info(f"Please make sure the '{DB_FILE}' file is in the same directory as this script.")
+    st.stop()
+
+# Get database connection
+if args.bypass_login:
+    st.session_state.logged_in = True
+    st.session_state.username = args.bypass_login
 
 # Main login page
 st.title("🔐 Login System")
@@ -67,7 +72,7 @@ if not st.session_state.logged_in:
                 st.warning("Please enter both username and password")
 else:
     st.success(f"Welcome, {st.session_state.username}!")
-    st.info("Navigate to the 'Fish Data' page using the sidebar to view the fish table.")
+    st.info("Navigate to the 'Check Fish' page using the sidebar to start checking fish.")
     
     if st.button("Logout"):
         logout()
