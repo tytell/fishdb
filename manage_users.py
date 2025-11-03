@@ -2,7 +2,33 @@ import hashlib
 import argparse
 import sys
 from getpass import getpass
-import sqlite3
+from supabase import create_client, Client
+import toml
+
+def load_secrets():
+    """Load database credentials from secrets.toml"""
+    try:
+        secrets = toml.load('.streamlit/secrets.toml')
+        db_url = secrets.get('DB_URL')
+        db_key = secrets.get('DB_KEY')
+        
+        if not db_url or not db_key:
+            print("✗ Error: DB_URL and DB_KEY must be set in secrets.toml!")
+            sys.exit(1)
+        
+        return db_url, db_key
+    except FileNotFoundError:
+        print("✗ Error: .streamlit/secrets.toml file not found!")
+        print("  Please create the file with DB_URL and DB_KEY.")
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗ Error loading secrets: {e}")
+        sys.exit(1)
+
+def get_supabase_client():
+    """Get Supabase client connection"""
+    db_url, db_key = load_secrets()
+    return create_client(db_url, db_key)
 
 def hash_password(password):
     """Hash password using SHA256"""
@@ -20,138 +46,118 @@ USER_ACCESS = {
 def add_user(username, name, password, access='user'):
     """Add a new user or update password if user already exists"""
     try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
+        supabase = get_supabase_client()
         
         hashed_password = hash_password(password)
         access_number = USER_ACCESS.get(access.lower(), 3)  # Default to 'user' access (3)
         
         # Check if user already exists
-        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
-        user_exists = cursor.fetchone() is not None
+        response = supabase.table('People').select('username').eq('username', username).execute()
+        user_exists = len(response.data) > 0
         
         if user_exists:
-            # Update existing user's password and access
-            cursor.execute(
-                'UPDATE People SET Password = ?, Access = ? WHERE Username = ?',
-                (hashed_password, access_number, username)
-            )
-            conn.commit()
-            conn.close()
-            print(f"✓ Password and access updated for user '{username}' (access: {access} = {access_number})!")
+            # Update existing user's password and level
+            response = supabase.table('People').update({
+                'password': hashed_password,
+                'access': access_number
+            }).eq('username', username).execute()
+            
+            print(f"✓ Password and level updated for user '{username}' (access: {access} = {access_number})!")
             return True
         else:
             # Insert new user
-            cursor.execute(
-                'INSERT INTO People (Name, Username, Password, Access) VALUES (?, ?, ?, ?)',
-                (name, username, hashed_password, access_number)
-            )
-            conn.commit()
-            conn.close()
-            print(f"✓ User '{username}' added successfully with access '{access}' ({access_number})!")
+            response = supabase.table('People').insert({
+                'full_name': name,
+                'username': username,
+                'password': hashed_password,
+                'access': access_number
+            }).execute()
+            
+            print(f"✓ User '{username}' added successfully with level '{access}' ({access_number})!")
             return True
             
-    except sqlite3.Error as e:
-        print(f"✗ Database error: {e}")
-        return False
-
-def check_password(username, password):
-    """Add a new user or update password if user already exists"""
-    try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
-        
-        hashed_password = hash_password(password)
-        
-        # Check if user already exists
-        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
-        user_exists = cursor.fetchone() is not None
-        
-        if not user_exists:
-            print(f"✗ Error: User '{username}' does not exist!")
-            conn.close()
-            return False
-
-        cursor.execute('SELECT Password FROM People WHERE Username = ?', (username,))
-
-        db_password = cursor.fetchone()[0]
-        if hashed_password == db_password:
-            print(f"✓ Password matches for user '{username}'!")
-        else:
-            print(f"✗ Password does not match for user '{username}': {hashed_password} != {db_password}!")
-
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"✗ Database error: {e}")
         return False
 
 def remove_user(username):
     """Remove a user from the database"""
     try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
+        supabase = get_supabase_client()
         
         # Check if user exists
-        cursor.execute('SELECT Username FROM People WHERE Username = ?', (username,))
-        if cursor.fetchone() is None:
+        response = supabase.table('People').select('username').eq('username', username).execute()
+
+        if len(response.data) == 0:
             print(f"✗ Error: User '{username}' does not exist!")
-            conn.close()
             return False
         
         # Delete the user
-        cursor.execute('DELETE FROM People WHERE Username = ?', (username,))
-        conn.commit()
-        conn.close()
+        response = supabase.table('People').delete().eq('username', username).execute()
         
         print(f"✓ User '{username}' removed successfully!")
         return True
-    except sqlite3.Error as e:
+        
+    except Exception as e:
         print(f"✗ Database error: {e}")
         return False
 
 def list_users():
     """List all users in the database"""
     try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
+        supabase = get_supabase_client()
         
-        cursor.execute('SELECT Username, Name, Access FROM People ORDER BY username')
-        users = cursor.fetchall()
-        conn.close()
+        response = supabase.table('People').select('full_name, username, access').order('username').execute()
+        users = response.data
         
         if not users:
             print("No users found in the database.")
             return
         
-        # Reverse lookup for access names
+        # Reverse lookup for access level names
         access_names = {v: k for k, v in USER_ACCESS.items()}
-        print(access_names)
-
-        print(f"\n{'ID':<5} {'Username':<20}: {'Name':<20} {'Access':<15} {'Access #':<8}")
+        
+        print(f"\n{'Name':<30} {'Username':<20} {'Access':<15} {'Access #':<8}")
         print("-" * 50)
-        for username, Name, access in users:
-            access_name = access_names.get(int(access), 'unknown')
-            print(f"{username:<20}: {Name:<20} {access_name:<15} {access:<8}")
+        for user in users:
+            access_name = access_names.get(user['access'], 'unknown')
+            print(f"{user['full_name']:<30} {user['username']:<20} {access_name:<15} {user['access']:<8}")
         print(f"\nTotal users: {len(users)}")
         
-    except sqlite3.Error as e:
+    except Exception as e:
         print(f"✗ Database error: {e}")
+
+def check_password(username, password):
+    """Check if the provided password matches the user's stored password"""
+    try:
+        supabase = get_supabase_client()
+        
+        # Get user from database
+        response = supabase.table('People').select('username, password').eq('username', username).execute()
+        
+        if len(response.data) == 0:
+            print(f"✗ Error: User '{username}' does not exist!")
+            return False
+        
+        user = response.data[0]
+        stored_password = user['password']
+        hashed_input = hash_password(password)
+        
+        if stored_password == hashed_input:
+            print(f"✓ Password matches for user '{username}'!")
+            return True
+        else:
+            print(f"✗ Password does NOT match for user '{username}'!")
+            return False
+            
+    except Exception as e:
+        print(f"✗ Database error: {e}")
+        return False
 
 def main():
     parser = argparse.ArgumentParser(
         description='Manage users in the fish.db database',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python manage_users.py add john                          # Add user with default 'user' access
-  python manage_users.py add john -p secret123             # Add user with password
-  python manage_users.py add john -l administrator         # Add admin user
-  python manage_users.py add jane -p pass456 -l manager    # Add manager with password
-  python manage_users.py remove john                       # Remove user
-  python manage_users.py list                              # List all users
-  
-User Access:
-  administrator = 10, manager = 5, user = 3, limited = 2, guest = 1
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     subparsers = parser.add_subparsers(dest='command', help='Available commands')
@@ -180,18 +186,14 @@ User Access:
     
     args = parser.parse_args()
     
-    # Check if database exists
+    # Check if database connection works
     try:
-        conn = sqlite3.connect('fish.db')
-        cursor = conn.cursor()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='People'")
-        if cursor.fetchone() is None:
-            print("✗ Error: People table does not exist. Run setup_db.py first!")
-            conn.close()
-            sys.exit(1)
-        conn.close()
-    except sqlite3.Error as e:
+        supabase = get_supabase_client()
+        # Test connection by trying to query People table
+        supabase.table('People').select('username').limit(1).execute()
+    except Exception as e:
         print(f"✗ Error: Could not connect to database: {e}")
+        print("  Please check your DB_URL and DB_KEY in .streamlit/secrets.toml")
         sys.exit(1)
     
     # Execute commands
