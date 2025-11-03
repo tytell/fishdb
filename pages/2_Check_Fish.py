@@ -59,24 +59,24 @@ st.divider()
 
 # Sort fish based on user selection
 if sort_by == "Tank":
-    fish_data_sorted = sorted(fish_data, key=lambda x: (x['Tank'] or "", x['ID']))
+    fish_data_sorted = sorted(fish_data, key=lambda x: (x['tank'] or "", x['id']))
 elif sort_by == "Shelf":
-    fish_data_sorted = sorted(fish_data, key=lambda x: (x['Shelf'] or "", x['ID']))
+    fish_data_sorted = sorted(fish_data, key=lambda x: (x['shelf'] or "", x['id']))
 else:  # Fish ID
-    fish_data_sorted = sorted(fish_data, key=lambda x: x['ID'])
+    fish_data_sorted = sorted(fish_data, key=lambda x: x['id'])
 
 st.write("**Fish Checks:**")
 
 for fish_data1 in fish_data_sorted:
-    fish_id = fish_data1['ID']
+    fish_id = fish_data1['id']
     is_submitted = fish_id in st.session_state.submitted_fish
     
     # Display fish info with tank and shelf
     info_text = f"**Fish ID: {fish_id}**"
-    if fish_data1['Tank']:
-        info_text += f" | Tank: {fish_data1['Tank']}"
-    if fish_data1['Shelf']:
-        info_text += f" | Level: {fish_data1['Shelf']}"
+    if fish_data1['tank']:
+        info_text += f" | Tank: {fish_data1['tank']}"
+    if fish_data1['shelf']:
+        info_text += f" | Shelf: {fish_data1['shelf']}"
     st.write(info_text)
     
     fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 2, 3, 1])
@@ -89,7 +89,7 @@ for fish_data1 in fish_data_sorted:
 
     with healthcol:
         # Health status dropdown
-        current_status = fish_data1['Status'] or 'Healthy'
+        current_status = fish_data1['status'] or 'Healthy'
         status_index = health_statuses.index(current_status) if current_status in health_statuses else 0
         new_status = st.selectbox(
             "Health",

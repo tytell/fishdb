@@ -75,7 +75,7 @@ def get_all_fish(include_dead = False):
         
         return fish_list
     except Exception as e:
-        st.error(f"Database error: {e}")
+        st.error(f"Database error in get_all_fish: {e}")
         return []
 
 def get_all_tanks():
@@ -91,10 +91,10 @@ def get_all_tanks():
             .execute()
         )
 
-        tanks = [t['id'] for t in response.data]
+        tanks = [t['name'] for t in response.data]
         return tanks
     except Exception as e:
-        st.error(f"Database error: {e}")
+        st.error(f"Database error in get_all_tanks: {e}")
         return []
 
 def get_all_systems():
@@ -112,7 +112,7 @@ def get_all_systems():
 
         systems = [s['name'] for s in response.data]
     except Exception as e:
-        st.error(f"Database error: {e}")
+        st.error(f"Database erro in get_all_systems: {e}")
         return []
 
     shortnames = dict()
@@ -136,15 +136,15 @@ def get_all_people():
 
         response = (
             supabase.table('People')
-            .select('full_name')
+            .select('username', 'full_name')
             .order('full_name')
             .execute()
         )
 
-        people = [p['full_name'] for p in response.data]
+        people = {p['username']: p['full_name'] for p in response.data}
         return people
     except Exception as e:
-        st.error(f"Database error: {e}")
+        st.error(f"Database error in get_all_people: {e}")
         return []
 
 def log_water(date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes):
