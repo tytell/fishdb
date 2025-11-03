@@ -1,38 +1,22 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
+import logging
+
+import utils.dbfunctions as db
+
+logger = logging.getLogger(__name__)
 
 # Page configuration
 st.set_page_config(page_title="Fish Table", page_icon="🐟")
 
-# Check if user is logged in
-if 'logged_in' not in st.session_state or not st.session_state.logged_in:
-    st.warning("⚠️ Please login first!")
-    st.info("Use the sidebar to navigate back to the Login page.")
-    st.stop()
+db.stop_if_not_logged_in()
 
 st.title("🐟 Fish Table")
 st.subheader(f"Logged in as: {st.session_state.username}")
 
-# Function to load fish data
-def load_fish_data():
-    """Load fish data from database"""
-    try:
-        conn = sqlite3.connect('fish.db')
-        query = "SELECT * FROM Fish"
-        df = pd.read_sql_query(query, conn)
-        conn.close()
-        return df
-    except sqlite3.Error as e:
-        st.error(f"Database error: {e}")
-        return None
-    except Exception as e:
-        st.error(f"Error: {e}")
-        return None
-
 # Load and display fish data
 with st.spinner("Loading fish data..."):
-    fish_df = load_fish_data()
+    fish_df = pd.DataFrame(db.get_all_fish())
 
 if fish_df is not None:
     if not fish_df.empty:

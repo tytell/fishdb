@@ -20,8 +20,6 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 if 'username' not in st.session_state:
     st.session_state.username = None
-if 'conn' not in st.session_state:
-    st.session_state.conn = None
 
 
 def logout():
@@ -36,12 +34,6 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--bypass_login', help='Bypass login screen for testing')
 
 args = parser.parse_args()
-
-# Check if database exists
-if not os.path.exists(DB_FILE):
-    st.error(f"Database file '{DB_FILE}' not found!")
-    st.info(f"Please make sure the '{DB_FILE}' file is in the same directory as this script.")
-    st.stop()
 
 # Get database connection
 if args.bypass_login:
@@ -73,8 +65,10 @@ if not st.session_state.logged_in:
 else:
     st.success(f"Welcome, {st.session_state.username}!")
     
+    if st.button("Check water"):
+        st.switch_page('pages/1_Check_Water.py')
     if st.button("Check fish"):
-        st.switch_page('pages/1_Check_Fish.py')
+        st.switch_page('pages/2_Check_Fish.py')
         
     if st.button("Logout"):
         logout()
