@@ -72,8 +72,10 @@ if not st.session_state.logged_in:
                 st.warning("Please enter both username and password")
 else:
     st.success(f"Welcome, {st.session_state.username}!")
-    st.info("Navigate to the 'Check Fish' page using the sidebar to start checking fish.")
     
+    if st.button("Check fish"):
+        st.switch_page('pages/1_Check_Fish.py')
+        
     if st.button("Logout"):
         logout()
         st.rerun()

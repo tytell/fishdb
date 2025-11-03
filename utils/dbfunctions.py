@@ -3,6 +3,7 @@ import sqlite3
 import streamlit as st
 from contextlib import contextmanager
 import logging
+from datetime import datetime, timedelta
 
 from utils.settings import DB_FILE
 
@@ -54,7 +55,6 @@ def stop_if_not_logged_in():
 def get_all_fish(include_dead = False):
     """Get all fish with their tank and system information"""
 
-
     with get_db_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -93,9 +93,89 @@ def get_all_tanks():
         cursor = conn.cursor()
         cursor.execute('SELECT Name FROM Tanks ORDER BY Name')
         tanks = [row[0] for row in cursor.fetchall()]
-        conn.close()
         return tanks
 
+def get_all_systems():
+    """Get all available systems"""
+
+    with get_db_connection() as conn:    
+        cursor = conn.cursor()
+        cursor.execute('''
+                        SELECT 
+                            Name
+                        FROM Systems
+                        WHERE Active = 1
+                        ORDER BY Name
+                    ''')
+        systems = [row[0] for row in cursor.fetchall()]
+
+    shortnames = dict()
+    for sys1 in systems:
+        if len(sys1) > 4:
+            nm = sys1[:4]
+        else:
+            nm = sys1
+    
+        if nm in shortnames:
+            nm = nm + '1'
+        shortnames[nm] = sys1
+    
+    sysnames = {v: k for k,v in shortnames.items()}
+    return sysnames
+
+def get_last_water_quality(system, last=7):
+    cutoff_date = datetime.now() - timedelta(days=last)
+    
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            conn.row_factory = sqlite3.Row
+
+            cursor.execute("""
+                    SELECT * From WaterQuality
+                    WHERE Date >= ? AND System = ?
+                    ORDER BY Date DESC
+            """, (cutoff_date, system))
+
+            water_quality = cursor.fetchall()
+
+            if len(water_quality) > 0:
+                return water_quality[0]
+            else:
+                return []
+    except sqlite3.Error as e:
+        st.error(f"Error getting water quality: {e}")
+        return []
+
+def log_water(date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes):
+    """Log a water quality check to the database"""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('PRAGMA foreign_keys = ON')
+            
+            cursor.execute("""
+                INSERT INTO WaterQuality (
+                           Date, 
+                           Person, 
+                           System, 
+                           Conductivity, 
+                           pH, 
+                           Ammonia,
+                           Nitrate, 
+                           Nitrite, 
+                           WaterChangePct, 
+                           Notes
+                           )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes))
+            
+            conn.commit()
+            return True
+    except sqlite3.Error as e:
+        st.error(f"Error logging check: {e}")
+        return False
+    
 def get_all_people():
     """Get list of names from People table"""
     try:
