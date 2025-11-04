@@ -1,7 +1,7 @@
 import hashlib
 from supabase import create_client, Client
 import streamlit as st
-from contextlib import contextmanager
+import pandas as pd
 import logging
 from datetime import datetime, timedelta
 
@@ -70,6 +70,59 @@ def get_all_fish(include_dead = False):
     except Exception as e:
         st.error(f"Database error in get_all_fish: {e}")
         return []
+
+# Define status priority for ordering
+health_status_order = {
+    'Diseased': 1,
+    'Monitor': 2,
+    'Healthy': 3
+}
+
+def get_fish_with_health():
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.table('Fish')
+            .select(
+                'id, species, tank, status'
+            )
+            .neq('status', 'Dead')
+            .execute()
+        )
+        
+        if response.data:
+            df = pd.DataFrame(response.data)
+            # Add sort key based on status priority
+            df['sort_key'] = df['status'].map(health_status_order).fillna(999)
+            df = df.sort_values(['sort_key', 'id'])
+            return df
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Database error in get_fish_with_health: {e}")
+        return pd.DataFrame()
+
+def get_fish_health_notes(fish_id, days_back=14):
+    """Get health notes for a specific fish from the last N days"""
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days_back)).isoformat()
+        
+        supabase = get_supabase_client()
+        response = (
+            supabase.table('Health')
+            .select('*')
+            .eq('fish', fish_id)
+            .gte('date', cutoff_date)
+            .order('date', desc=True)
+            .execute()
+        )
+        
+        if response.data:
+            return pd.DataFrame(response.data)
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error fetching health notes: {str(e)}")
+        return pd.DataFrame()
 
 def get_all_tanks():
     """Get all available tanks"""
