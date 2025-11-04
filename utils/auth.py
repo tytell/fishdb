@@ -23,35 +23,6 @@ def get_supabase_client():
         client.postgrest.auth(st.session_state.session.access_token)
     
     return client
-    
-def sign_up(email: str, password: str, full_name: str):
-    """Sign up a new user"""
-    try:
-        supabase = get_supabase_client()
-        response = supabase.auth.sign_up({
-            "email": email,
-            "password": password
-        })
-        if response.user:
-            response = (
-                supabase.table("People")
-                .insert({
-                    'id': st.session_state.user['id'],
-                    'full_name': full_name,
-                    'email': email,
-                    'active': True
-                })
-                .execute()
-            )
-
-            st.success("✅ Sign up successful! Please check your email to verify your account.")
-            return True
-        else:
-            st.error("Sign up failed. Please try again.")
-            return False
-    except Exception as e:
-        st.error(f"Error during sign up: {str(e)}")
-        return False
 
 def sign_in(email: str, password: str):
     """Sign in an existing user"""
@@ -79,6 +50,56 @@ def sign_in(email: str, password: str):
         st.error(f"Error during sign in: {str(e)}")
         return False
 
+def sign_up(email: str, password: str):
+    """Sign up a new user"""
+    try:
+        supabase = get_supabase_client()
+        response = supabase.auth.sign_up({
+            "email": email,
+            "password": password
+        })
+        if response.user:
+            st.success("✅ Sign up successful! Please check your email to verify your account, then sign in.")
+            return True
+        else:
+            st.error("Sign up failed. Please try again.")
+            return False
+    except Exception as e:
+        st.error(f"Error during sign up: {str(e)}")
+        return False
+
+def add_update_person(full_name: str, level: str, phone: str, nontuftsemail: str,
+                   access = 3, active = True):
+    """Adds a person or updates their information"""
+    try:
+        supabase = get_supabase_client()
+
+        add_person = (
+            supabase.table("People")
+            .upsert({
+                'id': st.session_state.user.id,
+                'full_name': full_name,
+                'level': level,
+                'mobile_phone': phone,
+                'non_tufts_email': nontuftsemail,
+                'active': True,
+                'access': access
+            },
+            on_conflict='id')
+            .execute()
+        )
+
+        logger.debug(f"sign_up: {add_person=}")
+        if add_person.data:
+            return True
+        else:
+            return False
+    except Exception as e:
+        logger.debug(f"Error: {str(e)}")
+        st.error(f"Error adding person: {str(e)}")
+        return None    
+
+
 def get_full_name():
     try:
         supabase = get_supabase_client()
@@ -96,7 +117,7 @@ def get_full_name():
         if response.data:
             return response.data[0]['full_name']
         else:
-            st.error("No person found matching id {id}")
+            return None
     except Exception as e:
         logger.debug(f"Error: {str(e)}")
         st.error(f"Error during sign in: {str(e)}")

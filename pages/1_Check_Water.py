@@ -35,17 +35,15 @@ with col1:
     )
 
 with col2:
-    people_data = db.get_all_people()
-    usernames = people_data.keys()
-    people_names = people_data.values()
-    if st.session_state.user in people_data:
-        default_name_ind = list(people_names).index(people_data[st.session_state.user])
+    people = db.get_all_people()
+    if st.session_state.full_name in people:
+        default_name_ind = list(people).index(st.session_state.full_name)
     else:
         default_name_ind = 0
-        logger.warning(f'Username {st.session_state.user} not found in database')
+        logger.warning(f'Username {st.session_state.full_name} not found in database')
 
-    if people_names:
-        selected_person = st.selectbox("Person", people_names,
+    if people:
+        selected_person = st.selectbox("Person", people,
                                     index = default_name_ind)
     else:
         st.warning("No people found in People table")
@@ -128,3 +126,6 @@ for system, sysname in systems.items():
         )
     
     st.divider()
+
+if st.button("Next (Check fish)"):
+    st.switch_page('pages/2_Check_Fish.py')

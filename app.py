@@ -72,15 +72,13 @@ if st.session_state.user is None:
             password = st.text_input("Password", type="password", key="signup_password")
             password_confirm = st.text_input("Confirm Password", type="password", key="signup_password_confirm")
 
-            full_name = st.text_input("Full Name", key="full_name")
-
             submit = st.form_submit_button("Sign Up")
             
             if submit:
                 if email and password and password_confirm:
                     if password == password_confirm:
                         if len(password) >= 8:
-                            auth.sign_up(email, password, full_name)
+                            auth.sign_up(email, password)
                         else:
                             st.error("Password must be at least 8 characters long")
                     else:
@@ -102,13 +100,31 @@ if st.session_state.user is None:
                     st.error("Please enter your email address")
 
 else:
-    st.success(f"Welcome, {st.session_state.user}!")
-    
-    if st.button("Check water"):
-        st.switch_page('pages/1_Check_Water.py')
-    if st.button("Check fish"):
-        st.switch_page('pages/2_Check_Fish.py')
+    if st.session_state.full_name is None:
+        # new user
+        with st.form("Add your information"):
+            full_name = st.text_input("Full Name", key="new_fullname")
+            phone = st.text_input("Mobile Phone", key="new_phone")
+            level = st.selectbox("Level",
+                                 ("Undergraduate", "Graduate", "Postdoc", "Other"))
+            non_tufts_email = st.text_input("Non-Tufts email", key="new_nontuftsemail")
+
+            submit = st.form_submit_button("Update")
+            if submit:
+                if auth.add_update_person(full_name, level, phone, non_tufts_email):
+                    st.session_state.full_name = full_name
+                    st.rerun()
+                else:
+                    st.error("Problem adding your information")
+
+    else:
+        st.success(f"Welcome, {st.session_state.full_name}!")
         
-    if st.button("Logout"):
-        auth.logout()
-        st.rerun()
+        if st.button("Check water"):
+            st.switch_page('pages/1_Check_Water.py')
+        if st.button("Check fish"):
+            st.switch_page('pages/2_Check_Fish.py')
+            
+        if st.button("Logout"):
+            auth.logout()
+            st.rerun()

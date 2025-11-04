@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import logging
 from datetime import datetime, timedelta
 
-from utils.settings import DB_FILE
+from utils.auth import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -129,12 +129,12 @@ def get_all_people():
 
         response = (
             supabase.table('People')
-            .select('username', 'full_name')
+            .select('full_name')
             .order('full_name')
             .execute()
         )
 
-        people = {p['username']: p['full_name'] for p in response.data}
+        people = [p1['full_name'] for p1 in response.data]
         return people
     except Exception as e:
         st.error(f"Database error in get_all_people: {e}")
