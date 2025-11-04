@@ -4,11 +4,16 @@ import sys
 import logging
 import argparse
 
+logger = logging.getLogger('FishDB')
+logger.setLevel(level=logging.DEBUG)
+# Create a StreamHandler and attach it to the logger
+stream_handler = logging.StreamHandler()
+logger.addHandler(stream_handler)
+
 from utils.settings import DB_FILE
 from utils.dbfunctions import verify_login
+import utils.auth as auth
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 logger.debug('Starting!')
 
@@ -16,54 +21,88 @@ logger.debug('Starting!')
 st.set_page_config(page_title="Login System", page_icon="🔐")
 
 # Initialize session state for login
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-if 'username' not in st.session_state:
-    st.session_state.username = None
-
-
-def logout():
-    """Logout user"""
-    st.session_state.logged_in = False
-    st.session_state.username = None
+if 'user' not in st.session_state:
+    st.session_state.user = None
+if 'session' not in st.session_state:
+    st.session_state.session = None
+if 'full_name' not in st.session_state:
+    st.session_state.full_name = None
 
 # Get database
 
-parser = argparse.ArgumentParser(
-    description='FishDB Streamlit app')
-parser.add_argument('--bypass_login', help='Bypass login screen for testing')
+# parser = argparse.ArgumentParser(
+#     description='FishDB Streamlit app')
+# parser.add_argument('--bypass_login', help='Bypass login screen for testing')
 
-args = parser.parse_args()
+# args = parser.parse_args()
 
-# Get database connection
-if args.bypass_login:
-    st.session_state.logged_in = True
-    st.session_state.username = args.bypass_login
+# # Get database connection
+# if args.bypass_login:
+#     st.session_state.logged_in = True
+#     st.session_state.user = args.bypass_login
 
 # Main login page
 st.title("🔐 Login System")
 
-if not st.session_state.logged_in:
+if st.session_state.user is None:
     st.subheader("Please login to continue")
     
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submit = st.form_submit_button("Login")
-        
-        if submit:
-            if username and password:
-                if verify_login(username, password):
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                    st.success("Login successful!")
-                    st.rerun()
+    tab1, tab2, tab3 = st.tabs(["Sign In", "Sign Up", "Reset Password"])
+    
+    with tab1:
+        with st.form("login_form"):
+            email = st.text_input("Email", key='login_email')
+            password = st.text_input("Password", type="password", key="login_password")
+            submit = st.form_submit_button("Login")
+            
+            if submit:
+                if email and password:
+                    if auth.sign_in(email, password):
+                        st.success("Login successful!")
+                        st.rerun()
+                    else:
+                        st.error("Invalid username or password")
                 else:
-                    st.error("Invalid username or password")
-            else:
-                st.warning("Please enter both username and password")
+                    st.warning("Please enter both username and password")
+    
+    with tab2:
+        st.subheader("Create New Account")
+        with st.form("sign_up_form"):
+            email = st.text_input("Email", key="signup_email")
+            password = st.text_input("Password", type="password", key="signup_password")
+            password_confirm = st.text_input("Confirm Password", type="password", key="signup_password_confirm")
+
+            full_name = st.text_input("Full Name", key="full_name")
+
+            submit = st.form_submit_button("Sign Up")
+            
+            if submit:
+                if email and password and password_confirm:
+                    if password == password_confirm:
+                        if len(password) >= 8:
+                            auth.sign_up(email, password, full_name)
+                        else:
+                            st.error("Password must be at least 8 characters long")
+                    else:
+                        st.error("Passwords do not match")
+                else:
+                    st.error("Please fill in all fields")
+    
+    with tab3:
+        st.subheader("Reset Password")
+        st.write("Enter your email address and we'll send you a link to reset your password.")
+        with st.form("reset_password_form"):
+            email = st.text_input("Email", key="reset_email")
+            submit = st.form_submit_button("Send Reset Link")
+            
+            if submit:
+                if email:
+                    auth.reset_password(email)
+                else:
+                    st.error("Please enter your email address")
+
 else:
-    st.success(f"Welcome, {st.session_state.username}!")
+    st.success(f"Welcome, {st.session_state.user}!")
     
     if st.button("Check water"):
         st.switch_page('pages/1_Check_Water.py')
@@ -71,5 +110,5 @@ else:
         st.switch_page('pages/2_Check_Fish.py')
         
     if st.button("Logout"):
-        logout()
+        auth.logout()
         st.rerun()

@@ -12,7 +12,7 @@ st.set_page_config(page_title="Fish Table", page_icon="🐟")
 db.stop_if_not_logged_in()
 
 st.title("🐟 Fish Table")
-st.subheader(f"Logged in as: {st.session_state.username}")
+st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load and display fish data
 with st.spinner("Loading fish data..."):
@@ -41,6 +41,6 @@ else:
 # Logout button
 if st.button("Logout"):
     st.session_state.logged_in = False
-    st.session_state.username = None
+    st.session_state.user = None
     st.success("Logged out successfully!")
     st.info("Navigate back to the Login page using the sidebar.")

@@ -9,13 +9,6 @@ from utils.settings import DB_FILE
 
 logger = logging.getLogger(__name__)
 
-@st.cache_resource
-def get_supabase_client():
-    """Get Supabase client connection"""
-    db_url = st.secrets["DB_URL"]
-    db_key = st.secrets["DB_KEY"]
-    return create_client(db_url, db_key)
-
 def hash_password(password):
     """Hash password using SHA256"""
     return hashlib.sha256(password.encode()).hexdigest()
@@ -36,7 +29,7 @@ def verify_login(username, password):
 
 def stop_if_not_logged_in():
     # Check if user is logged in
-    if 'logged_in' not in st.session_state or not st.session_state.logged_in:
+    if 'user' not in st.session_state or st.session_state.user is None:
         st.warning("⚠️ Please login first!")
         st.info("Use the sidebar to navigate back to the Login page.")
         st.stop()

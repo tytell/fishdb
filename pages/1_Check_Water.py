@@ -5,7 +5,7 @@ import logging
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('FishDB')
 
 # Page configuration
 st.set_page_config(page_title="Check Water", page_icon="💧", layout="wide")
@@ -13,7 +13,7 @@ st.set_page_config(page_title="Check Water", page_icon="💧", layout="wide")
 db.stop_if_not_logged_in()
 
 st.title("💧 Check Water")
-st.subheader(f"Logged in as: {st.session_state.username}")
+st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load fish data
 systems = db.get_all_systems()
@@ -38,11 +38,11 @@ with col2:
     people_data = db.get_all_people()
     usernames = people_data.keys()
     people_names = people_data.values()
-    if st.session_state.username in people_data:
-        default_name_ind = list(people_names).index(people_data[st.session_state.username])
+    if st.session_state.user in people_data:
+        default_name_ind = list(people_names).index(people_data[st.session_state.user])
     else:
         default_name_ind = 0
-        logger.warning(f'Username {st.session_state.username} not found in database')
+        logger.warning(f'Username {st.session_state.user} not found in database')
 
     if people_names:
         selected_person = st.selectbox("Person", people_names,
