@@ -4,6 +4,7 @@ import logging
 
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
+from utils.formatting import apply_custom_css
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 st.set_page_config(page_title="Check Fish", page_icon="🐠", layout="wide")
 
 db.stop_if_not_logged_in()
+
+apply_custom_css()
 
 st.title("🐠 Check Fish")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
@@ -27,7 +30,7 @@ if 'submitted_fish' not in st.session_state:
     st.session_state.submitted_fish = set()
 
 # Top row with Date and Person
-col1, col2, col3 = st.columns(3)
+col1, col2, col3 = st.columns(3, gap='small')
 
 with col1:
     check_date = st.text_input(
@@ -77,7 +80,8 @@ for fish_data1 in fish_data_sorted:
         info_text += f" | Shelf: {fish_data1['shelf']}"
     st.write(info_text)
     
-    fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 2, 3, 1])
+    fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 2, 3, 1],
+                                                             gap='small')
     
     with fedcol:
         fed = st.checkbox("Fed", key=f"fed_{fish_id}", disabled=is_submitted)

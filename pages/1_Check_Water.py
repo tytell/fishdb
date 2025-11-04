@@ -4,6 +4,7 @@ import logging
 
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
+from utils.formatting import apply_custom_css
 
 logger = logging.getLogger('FishDB')
 
@@ -11,6 +12,8 @@ logger = logging.getLogger('FishDB')
 st.set_page_config(page_title="Check Water", page_icon="💧", layout="wide")
 
 db.stop_if_not_logged_in()
+
+apply_custom_css()
 
 st.title("💧 Check Water")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
@@ -26,7 +29,7 @@ if 'submitted_system' not in st.session_state:
     st.session_state.submitted_system = set()
 
 # Top row with Date and Person
-col1, col2 = st.columns(2)
+col1, col2 = st.columns(2, gap='small')
 
 with col1:
     check_date = st.text_input(
@@ -61,7 +64,7 @@ for system, sysname in systems.items():
     st.write(info_text)
     
     condcol, pHcol, ammcol, nitritecol, nitratecol, waterxcol, notescol, logcol = \
-        st.columns([1]*6 + [3, 1])
+        st.columns([1]*6 + [3, 1], gap='small')
 
     def number_col(name, key):
         return st.number_input(name, key=key,

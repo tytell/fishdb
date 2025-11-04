@@ -10,10 +10,9 @@ logger.setLevel(level=logging.DEBUG)
 stream_handler = logging.StreamHandler()
 logger.addHandler(stream_handler)
 
-from utils.settings import DB_FILE
 from utils.dbfunctions import verify_login
 import utils.auth as auth
-
+from utils.formatting import apply_custom_css
 
 logger.debug('Starting!')
 
@@ -40,6 +39,8 @@ if 'full_name' not in st.session_state:
 # if args.bypass_login:
 #     st.session_state.logged_in = True
 #     st.session_state.user = args.bypass_login
+
+apply_custom_css()
 
 # Main login page
 st.title("🔐 Login System")
