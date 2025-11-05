@@ -165,122 +165,357 @@ if selected_fish_idx is not None:
     # Log new health event section
     st.subheader("➕ Log New Health Event")
 
-    # Event type selection
-    event_type = st.selectbox(
-        "Event Type *",
-        ["Observation", "Change Status", "Tank Move", "Treatment Start", "Treatment End", "Other"],
-        help="Select the type of health event"
-    )  
+    # Create tabs for each event type
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "👁️ Observation",
+        "🏠 Tank Move", 
+        "💊 Treatment Start",
+        "✅ Treatment End",
+        "📌 Other"
+    ])
     
-    with st.form("health_event_form", clear_on_submit=True):
-        # Conditional fields based on event type
-        tank_name = None
-        treatment_details = None
-        cur_tank = None
-        new_tank = None
-        new_status = None
-
-        if event_type == "Tank Move":
-            all_tanks = db.get_all_tanks()
-            cur_tank = selected_fish["tank"]
-            other_tanks = copy(all_tanks)
-            other_tanks.remove(cur_tank)
-            other_tanks.append("New tank")
-
-            new_tank = st.selectbox(
-                "New Tank *",
-                other_tanks,
-                help="Choose the new tank"
-            )
-
-            if new_tank == "New tank":
-                systems = db.get_all_systems()
-
-                new_tank = st.text_input("Tank name")
-                tank_vol = st.number_input("Volume",
-                                           help="Tank volume in L")
-                is_hospital = st.checkbox("Hospital tank", value=True)
-                if is_hospital:
-                    system = new_tank
-                    shelf = None
-                else:
-                    system = st.selectbox("Tank system",
-                                          systems)
-                    shelf = st.number_input("Shelf")
-                
-                db.add_tank(new_tank, tank_vol, is_hospital, system, shelf)
-                
-        if event_type in ["Treatment Start", "Treatment End"]:
-            treatment_details = st.text_area(
-                "Treatment Details *",
-                placeholder="e.g., Melafix, Pimafix, Antibiotic: Doxycyclin 200mg/L, Duration: 5 days",
-                help="Describe the treatment, medication, dosage, and duration",
-                height=100
-            )
+    # TAB 1: OBSERVATION
+    with tab1:
+        st.markdown("#### Daily Health Observation")
+        st.info("Record routine health checks, behavior changes, and general observations")
         
-        if event_type == "Change Status":
-            new_status = st.selectbox("Health status", 
-                                      health_statuses.keys())
+        with st.form("observation_form", clear_on_submit=True):
+            notes = st.text_area(
+                "Observations and Notes *",
+                placeholder="Describe the fish's appearance, behavior, feeding patterns, activity level, etc.",
+                help="Be as detailed as possible - include symptoms, behavior changes, feeding patterns, etc.",
+                height=200,
+                key="observation_notes"
+            )
             
-        # Notes field (always visible)
-        notes = st.text_area(
-            "Observations and Notes *",
-            placeholder="Enter detailed observations about the fish's condition, behavior, appearance, etc.",
-            help="Be as detailed as possible - include symptoms, behavior changes, feeding patterns, etc.",
-            height=150,
-            key="health_notes_input"
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                submit = st.form_submit_button(
+                    "📊 Log Observation",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
+            
+            if submit:
+                if not notes.strip():
+                    st.error("❌ Notes are required")
+                else:
+                    success = db.log_health_event(
+                        fish_id=selected_fish_id,
+                        event_type="Observation",
+                        tank_name=None,
+                        treatment_details=None,
+                        notes=notes
+                    )
+                    
+                    if success:
+                        st.balloons()
+                        st.rerun()
+    
+    # TAB 2: TANK MOVE
+    with tab2:
+        st.markdown("#### Move Fish to Different Tank")
+        st.info("Record tank transfers and automatically update the fish's current location")
+        
+        # Get list of existing tanks
+        tank_names = db.get_all_tanks()
+        cur_tank = selected_fish['tank']
+        other_tanks = copy(tank_names)
+        other_tanks.remove(cur_tank)
+
+        # Create tank options list with "New Tank" option
+        tank_options = other_tanks + ["➕ New Tank"]
+                    
+        selected_tank = st.selectbox(
+            "Select Destination Tank *",
+            tank_options,
+            help="Select an existing tank or create a new one",
+            key="tank_move_selector"
         )
         
-        # Submit button
-        col1, col2, col3 = st.columns([2, 1, 1], gap="small")
-        
-        with col1:
-            submit_button = st.form_submit_button(
-                "📊 Log Health Event",
-                use_container_width=True,
-                type="primary"
-            )
-        
-        with col2:
-            clear_button = st.form_submit_button(
-                "🗑️ Clear",
-                use_container_width=True
-            )
-        
-        if submit_button:
-            # Validation
-            errors = []
-            
-            if not notes.strip():
-                errors.append("Notes are required")
-            
-            if event_type == "New Status" and not new_status:
-                errors.append("Please select a status")
+        # If "New Tank" is selected, show new tank creation fields
+        if selected_tank == "➕ New Tank":
+            st.markdown("---")
+            st.markdown("##### Create New Tank")
 
-            if event_type == "Tank Move" and not tank_name:
-                errors.append("Tank name is required for tank moves")
+            systems = db.get_all_systems()
             
-            if event_type in ["Treatment Start", "Treatment End"] and not treatment_details:
-                errors.append("Treatment details are required for treatment events")
+            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 1], gap="small")
             
-            if errors:
-                for error in errors:
-                    st.error(f"❌ {error}")
-            else:
-                # Log the event
-                success = db.log_health_event(date=check_date,
-                                              person=selected_person,
-                    fish_id=selected_fish_id,
-                    event_type=event_type,
-                    to_tank=new_tank,
-                    from_tank=cur_tank,
-                    treatment=treatment_details,
-                    notes=notes,
+            with col1:
+                new_tank_name = st.text_input(
+                    "New Tank Name *",
+                    placeholder="e.g., M14, H3",
+                    help="Enter a unique name for the new tank",
+                    key="new_tank_name_input"
                 )
+            
+            with col2:
+                new_tank_volume = st.number_input(
+                    "Volume (Liters) *",
+                    min_value=0.0,
+                    max_value=10000.0,
+                    value=100.0,
+                    step=10.0,
+                    help="Tank capacity in liters",
+                    key="new_tank_volume_input"
+                )
+            
+            with col3:
+                is_hospital = st.checkbox(
+                    "🏥 Hospital tank",
+                    value=True,
+                    help="Check if this tank is used for quarantine or treatment",
+                    key="new_tank_hospital_checkbox"
+                )
+            
+            with col4:
+                new_tank_system = st.selectbox("System", systems, help="Tank system if not a hospital tank",
+                             key="new_tank_system",
+                             disabled=is_hospital)
                 
-                if success:
-                    st.balloons()
-                    st.rerun()
+            with col5:
+                new_tank_shelf = st.number_input("Shelf", min_value=1,
+                                                 help="Shelf in system if not a hospital tank",
+                                                 key="new_tank_shelf")
+        else:
+            new_tank_name = None
+            new_tank_volume = None
+            new_tank_is_hospital = False
+            new_tank_system = None
+
+        st.markdown("---")
         
-        if clear_button:
-            st.rerun()
+        with st.form("tank_move_form", clear_on_submit=True):
+            notes = st.text_area(
+                "Reason for Tank Move *",
+                placeholder="Explain why the fish is being moved (e.g., overcrowding, illness, routine maintenance, quarantine)",
+                help="Document the reason for this tank transfer",
+                height=150,
+                key="tank_move_notes"
+            )
+            
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                submit = st.form_submit_button(
+                    "🏠 Move Fish to Tank",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
+            
+            if submit:
+                errors = []
+                
+                if not notes.strip():
+                    errors.append("Notes are required")
+                
+                if selected_tank == "➕ New Tank":
+                    if not new_tank_name or not new_tank_name.strip():
+                        errors.append("New tank name is required")
+                    if new_tank_volume is None or new_tank_volume <= 0:
+                        errors.append("Tank volume must be greater than 0")
+                
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                else:
+                    # Determine final tank name to use
+                    final_tank_name = None
+                    
+                    if selected_tank == "➕ New Tank":
+                        # Create the new tank first
+                        if db.add_tank(new_tank_name, new_tank_volume, 
+                                       new_tank_is_hospital, 
+                                       new_tank_system, new_tank_shelf):
+                            st.success(f"✅ New tank '{new_tank_name}' created successfully!")
+                            final_tank_name = new_tank_name
+                        else:
+                            st.error("Failed to create new tank")
+                            st.stop()
+                    else:
+                        final_tank_name = selected_tank
+                    
+                    # Log the tank move event
+                    success = db.log_health_event(
+                        fish_id=selected_fish_id,
+                        event_type="Tank Move",
+                        from_tank=cur_tank,
+                        to_tank=final_tank_name,
+                        notes=notes
+                    )
+                    
+                    if success:
+                        st.balloons()
+                        st.rerun()
+    
+    # TAB 3: TREATMENT START
+    with tab3:
+        st.markdown("#### Begin New Treatment")
+        st.info("Record the start of medication or treatment protocol")
+        
+        with st.form("treatment_start_form", clear_on_submit=True):
+            treatment_details = st.text_area(
+                "Treatment Details *",
+                placeholder="Example:\n• Medication: Erythromycin\n• Dosage: 200mg/L\n• Duration: 5 days\n• Administration: Water treatment\n• Target condition: Bacterial infection",
+                help="Describe the treatment, medication, dosage, duration, and target condition",
+                height=150,
+                key="treatment_start_details"
+            )
+            
+            notes = st.text_area(
+                "Symptoms and Observations *",
+                placeholder="Describe the symptoms that led to starting this treatment, current fish condition, etc.",
+                help="Document why this treatment is being started",
+                height=150,
+                key="treatment_start_notes"
+            )
+            
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                submit = st.form_submit_button(
+                    "💊 Start Treatment",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
+            
+            if submit:
+                errors = []
+                
+                if not treatment_details.strip():
+                    errors.append("Treatment details are required")
+                if not notes.strip():
+                    errors.append("Symptoms and observations are required")
+                
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                else:
+                    success = db.log_health_event(
+                        fish_id=selected_fish_id,
+                        event_type="Treatment Start",
+                        treatment=treatment_details,
+                        notes=notes
+                    )
+                    
+                    if success:
+                        st.balloons()
+                        st.rerun()
+    
+    # TAB 4: TREATMENT END
+    with tab4:
+        st.markdown("#### Complete Treatment")
+        st.info("Record the completion of a treatment protocol and document results")
+        
+        with st.form("treatment_end_form", clear_on_submit=True):
+            treatment_details = st.text_area(
+                "Treatment Summary *",
+                placeholder="Example:\n• Medication: Erythromycin\n• Duration completed: 5 days\n• Total dosage administered: 200mg/L daily\n• Outcome: Successful",
+                help="Summarize the treatment that was completed",
+                height=150,
+                key="treatment_end_details"
+            )
+            
+            notes = st.text_area(
+                "Treatment Results and Current Condition *",
+                placeholder="Describe the treatment outcome, current fish condition, any remaining symptoms, follow-up actions needed, etc.",
+                help="Document the results of this treatment",
+                height=150,
+                key="treatment_end_notes"
+            )
+            
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                submit = st.form_submit_button(
+                    "✅ Complete Treatment",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
+            
+            if submit:
+                errors = []
+                
+                if not treatment_details.strip():
+                    errors.append("Treatment summary is required")
+                if not notes.strip():
+                    errors.append("Treatment results are required")
+                
+                if errors:
+                    for error in errors:
+                        st.error(f"❌ {error}")
+                else:
+                    success = db.log_health_event(
+                        fish_id=selected_fish_id,
+                        event_type="Treatment End",
+                        treatment=treatment_details,
+                        notes=notes
+                    )
+                    
+                    if success:
+                        st.balloons()
+                        st.rerun()
+    
+    # TAB 5: OTHER
+    with tab5:
+        st.markdown("#### Other Health Event")
+        st.info("Record any other health-related events that don't fit the above categories")
+        
+        with st.form("other_event_form", clear_on_submit=True):
+            event_description = st.text_input(
+                "Event Description",
+                placeholder="e.g., Water parameter adjustment, Diet change, Breeding attempt",
+                help="Brief description of the type of event",
+                key="other_event_description"
+            )
+            
+            notes = st.text_area(
+                "Detailed Notes *",
+                placeholder="Provide detailed information about this event, actions taken, observations, etc.",
+                help="Document this health event in detail",
+                height=200,
+                key="other_event_notes"
+            )
+            
+            col1, col2 = st.columns([3, 1], gap="small")
+            
+            with col1:
+                submit = st.form_submit_button(
+                    "📌 Log Event",
+                    use_container_width=True,
+                    type="primary"
+                )
+            
+            with col2:
+                clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
+            
+            if submit:
+                if not notes.strip():
+                    st.error("❌ Notes are required")
+                else:
+                    # Combine event description with notes if provided
+                    full_notes = f"[{event_description}]\n\n{notes}" if event_description else notes
+                    
+                    success = db.log_health_event(
+                        fish_id=selected_fish_id,
+                        event_type="Other",
+                        notes=full_notes
+                    )
+                    
+                    if success:
+                        st.balloons()
+                        st.rerun()
