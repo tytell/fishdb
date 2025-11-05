@@ -193,6 +193,40 @@ def get_all_people():
         st.error(f"Database error in get_all_people: {e}")
         return []
 
+def add_tank(tank_name, tank_vol, is_hospital, system, shelf=None):
+    """Add a new tank"""
+
+    try:
+        supabase = get_supabase_client()
+
+        if is_hospital:
+            # hospital tanks are their own "system", so we add to the system
+            # table first
+            response = (
+                supabase.table("Systems")
+                .insert({
+                    'name': tank_name,
+                    'volume': tank_vol
+                })
+                .execute()
+            )
+        
+        response = (
+            supabase.table("Tanks")
+            .insert({
+                'name': tank_name,
+                'volume': tank_vol,
+                'system': system,
+                'shelf': shelf
+            })
+            .execute()
+        )
+
+    except Exception as e:
+        st.error(f"Database error in add_tank: {e}")
+        return []
+
+
 def log_water(date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes):
     """Log a water quality check to the database"""
     try:
@@ -244,7 +278,45 @@ def log_check(date_time, person, fish_id, fed, ate, notes):
         st.error(f"Database error: {e}")
         return False
 
+def log_health_event(date, person, fish_id, event_type, notes,
+                     new_status=None, 
+                     from_tank=None, to_tank=None, 
+                     treatment=None):
+    """Log a new health event to the database"""
 
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.table("Health")
+            .insert({
+                'date': date,
+                'by': person,
+                'fish': fish_id,
+                'event_type': event_type,
+                'notes': notes,
+                'change_status': new_status,
+                'from_tank': from_tank,
+                'to_tank': to_tank,
+                'treatment': treatment,
+            })
+            .execute()
+        )
+
+        if new_status is not None:
+            response = (
+                supabase.table("Fish")
+                .update({'status': new_status})
+                .eq('id', fish_id)
+                .execute()
+            )
+
+        return True
+    
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return False
+    
 def log_new_health_status(date_time, person, fish_id, status, notes):
     """Log a change in fish health to the database"""
 
@@ -256,6 +328,7 @@ def log_new_health_status(date_time, person, fish_id, status, notes):
             .insert({
                 'date': date_time,
                 'by': person,
+                'event_type': 'Change status',
                 'fish': fish_id,
                 'change_status': status,
                 'notes': notes

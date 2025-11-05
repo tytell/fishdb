@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import datetime
 import logging
+from copy import copy
 
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
@@ -128,16 +129,7 @@ if selected_fish_idx is not None:
                 with note_cols[0]:
                     st.markdown(f"**📅 {note_date.strftime('%Y-%m-%d %H:%M')}**")
                 with note_cols[1]:
-                    if note['start_treatment'] is not None:
-                        event_type = 'Treatment Start'
-                    elif note['end_treatment'] is not None:
-                        event_type = 'Treatment End'
-                    elif note['to_tank'] is not None:
-                        event_type = 'Tank Move'
-                    elif note['change_status'] is not None:
-                        event_type = 'Observation'
-                    else:
-                        event_type = 'Other'
+                    event_type = note['event_type']
 
                     event_emoji = {
                         'Tank Move': '🏠',
@@ -172,34 +164,64 @@ if selected_fish_idx is not None:
     
     # Log new health event section
     st.subheader("➕ Log New Health Event")
+
+    # Event type selection
+    event_type = st.selectbox(
+        "Event Type *",
+        ["Observation", "Change Status", "Tank Move", "Treatment Start", "Treatment End", "Other"],
+        help="Select the type of health event"
+    )  
     
     with st.form("health_event_form", clear_on_submit=True):
-        # Event type selection
-        event_type = st.selectbox(
-            "Event Type *",
-            ["Observation", "Tank Move", "Treatment Start", "Treatment End", "Other"],
-            help="Select the type of health event"
-        )
-        
         # Conditional fields based on event type
         tank_name = None
         treatment_details = None
-        
+        cur_tank = None
+        new_tank = None
+        new_status = None
+
         if event_type == "Tank Move":
-            tank_name = st.text_input(
-                "New Tank Name *",
-                placeholder="e.g., Tank A-3, Quarantine Tank 2",
-                help="Enter the name or ID of the new tank"
+            all_tanks = db.get_all_tanks()
+            cur_tank = selected_fish["tank"]
+            other_tanks = copy(all_tanks)
+            other_tanks.remove(cur_tank)
+            other_tanks.append("New tank")
+
+            new_tank = st.selectbox(
+                "New Tank *",
+                other_tanks,
+                help="Choose the new tank"
             )
-        
+
+            if new_tank == "New tank":
+                systems = db.get_all_systems()
+
+                new_tank = st.text_input("Tank name")
+                tank_vol = st.number_input("Volume",
+                                           help="Tank volume in L")
+                is_hospital = st.checkbox("Hospital tank", value=True)
+                if is_hospital:
+                    system = new_tank
+                    shelf = None
+                else:
+                    system = st.selectbox("Tank system",
+                                          systems)
+                    shelf = st.number_input("Shelf")
+                
+                db.add_tank(new_tank, tank_vol, is_hospital, system, shelf)
+                
         if event_type in ["Treatment Start", "Treatment End"]:
             treatment_details = st.text_area(
                 "Treatment Details *",
-                placeholder="e.g., Antibiotic: Erythromycin 200mg/L, Duration: 5 days",
+                placeholder="e.g., Melafix, Pimafix, Antibiotic: Doxycyclin 200mg/L, Duration: 5 days",
                 help="Describe the treatment, medication, dosage, and duration",
                 height=100
             )
         
+        if event_type == "Change Status":
+            new_status = st.selectbox("Health status", 
+                                      health_statuses.keys())
+            
         # Notes field (always visible)
         notes = st.text_area(
             "Observations and Notes *",
@@ -232,6 +254,9 @@ if selected_fish_idx is not None:
             if not notes.strip():
                 errors.append("Notes are required")
             
+            if event_type == "New Status" and not new_status:
+                errors.append("Please select a status")
+
             if event_type == "Tank Move" and not tank_name:
                 errors.append("Tank name is required for tank moves")
             
@@ -243,14 +268,15 @@ if selected_fish_idx is not None:
                     st.error(f"❌ {error}")
             else:
                 # Log the event
-                success = True
-                # success = log_health_event(
-                #     fish_id=selected_fish_id,
-                #     event_type=event_type,
-                #     tank_name=tank_name,
-                #     treatment_details=treatment_details,
-                #     notes=notes
-                # )
+                success = db.log_health_event(date=check_date,
+                                              person=selected_person,
+                    fish_id=selected_fish_id,
+                    event_type=event_type,
+                    to_tank=new_tank,
+                    from_tank=cur_tank,
+                    treatment=treatment_details,
+                    notes=notes,
+                )
                 
                 if success:
                     st.balloons()
