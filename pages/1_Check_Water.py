@@ -5,8 +5,10 @@ import logging
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
+from utils.date_person import date_person_input
 
-logger = logging.getLogger('FishDB')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # Page configuration
 st.set_page_config(page_title="Check Water", page_icon="💧", layout="wide")
@@ -18,8 +20,16 @@ apply_custom_css()
 st.title("💧 Check Water")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
 
+# Top row
+check_date, selected_person = date_person_input()
+
 # Load fish data
 systems = db.get_all_systems()
+tanks = db.get_all_tanks()
+individual_tank_names = {t1['name']: t1['name'] for t1 in tanks if t1['system'] is None}
+
+# add individual tanks to the list of systems
+systems.update(individual_tank_names)
 
 if not systems:
     st.warning("No tank systems found in the database.")
@@ -27,30 +37,6 @@ if not systems:
 
 if 'submitted_system' not in st.session_state:
     st.session_state.submitted_system = set()
-
-# Top row with Date and Person
-col1, col2 = st.columns(2, gap='small')
-
-with col1:
-    check_date = st.text_input(
-        "Date",
-        value=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
-
-with col2:
-    people = db.get_all_people()
-    if st.session_state.full_name in people:
-        default_name_ind = list(people).index(st.session_state.full_name)
-    else:
-        default_name_ind = 0
-        logger.warning(f'Username {st.session_state.full_name} not found in database')
-
-    if people:
-        selected_person = st.selectbox("Person", people,
-                                    index = default_name_ind)
-    else:
-        st.warning("No people found in People table")
-        selected_person = None
 
 st.divider()
 
@@ -106,8 +92,16 @@ for system, sysname in systems.items():
         else:
             if st.button("Log", key=f"btn_{sysname}", type="primary", use_container_width=True):
                 if selected_person:
+                    if system in individual_tank_names:
+                        tank = system
+                        system = None
+                    else:
+                        tank = None
+                    
+                    logger.debug(f'{check_date=}')
+
                     if db.log_water(check_date, selected_person, system, coductivity, pH,
-                                    amm, nitrate, nitrite, waterx, notes):
+                                    amm, nitrate, nitrite, waterx, notes, tank=tank):
                         st.session_state.submitted_system.add(sysname)
                         st.success(f"✅ Logged")
                     else:

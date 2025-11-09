@@ -4,7 +4,7 @@ import logging
 
 import utils.dbfunctions as db
 
-logger = logging.getLogger('FishDB')
+logger = logging.getLogger(__name__)
 
 # Initialize Supabase client
 @st.cache_resource

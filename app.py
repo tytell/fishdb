@@ -4,11 +4,11 @@ import sys
 import logging
 import argparse
 
-logger = logging.getLogger('FishDB')
-logger.setLevel(level=logging.DEBUG)
-# Create a StreamHandler and attach it to the logger
-stream_handler = logging.StreamHandler()
-logger.addHandler(stream_handler)
+logging.basicConfig(level=logging.WARNING,
+                    format='%(name)s - %(levelname)s - %(message)s')
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 from utils.dbfunctions import verify_login
 import utils.auth as auth

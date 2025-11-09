@@ -5,6 +5,7 @@ import logging
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
+from utils.date_person import date_person_input
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ st.subheader(f"Logged in as: {st.session_state.full_name}")
 # Load fish data
 fish_data = db.get_all_fish(include_dead=False)
 tanks = db.get_all_tanks()
+tanks = [t1['name'] for t1 in tanks]
 
 if not fish_data:
     st.warning("No fish found in the database.")
@@ -30,41 +32,18 @@ if 'submitted_fish' not in st.session_state:
     st.session_state.submitted_fish = set()
 
 # Top row with Date and Person
-col1, col2, col3 = st.columns(3, gap='small')
-
-with col1:
-    check_date = st.text_input(
-        "Date",
-        value=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
-
-with col2:
-    people = db.get_all_people()
-    if st.session_state.full_name in people:
-        default_name_ind = list(people).index(st.session_state.full_name)
-    else:
-        default_name_ind = 0
-        logger.warning(f'Username {st.session_state.full_name} not found in database')
-
-    if people:
-        selected_person = st.selectbox("Person", people,
-                                    index = default_name_ind)
-    else:
-        st.warning("No people found in People table")
-        selected_person = None
-
-with col3:
-    sort_by = st.selectbox("Sort by", ["Fish ID", "Tank", "Shelf"])
+check_date, selected_person = date_person_input()
 
 st.divider()
 
 # Sort fish based on user selection
-if sort_by == "Tank":
-    fish_data_sorted = sorted(fish_data, key=lambda x: (x['tank'] or "", x['id']))
-elif sort_by == "Shelf":
-    fish_data_sorted = sorted(fish_data, key=lambda x: (x['shelf'] or "", x['id']))
-else:  # Fish ID
-    fish_data_sorted = sorted(fish_data, key=lambda x: x['id'])
+# sort_by = "Fish"
+# if sort_by == "Tank":
+#     fish_data_sorted = sorted(fish_data, key=lambda x: (x['tank'] or "", x['id']))
+# elif sort_by == "Shelf":
+#     fish_data_sorted = sorted(fish_data, key=lambda x: (x['shelf'] or "", x['id']))
+# else:  # Fish ID
+fish_data_sorted = sorted(fish_data, key=lambda x: x['id'])
 
 st.write("**Fish Checks:**")
 
@@ -78,11 +57,26 @@ for fish_data1 in fish_data_sorted:
         info_text += f" | Tank: {fish_data1['tank']}"
     if fish_data1['shelf']:
         info_text += f" | Shelf: {fish_data1['shelf']}"
-    st.write(info_text)
     
-    fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 2, 3, 1],
+    st.write(info_text)
+
+    if fish_data1['number_in_group'] is not None and \
+        fish_data1['number_in_group'] > 1:
+        numcol, fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 1, 2, 3, 1],
+                                                             gap='small')
+    else:
+        numcol = None
+        fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 2, 3, 1],
                                                              gap='small')
     
+    if numcol:
+        with numcol:
+            num = st.number_input("Number", min_value=1, value=None,
+                                  disabled=is_submitted, help="Number of fish in group",
+                                  label_visibility='collapsed', placeholder='Number')
+    else:
+        num = None
+
     with fedcol:
         fed = st.checkbox("Fed", key=f"fed_{fish_id}", disabled=is_submitted)
     
@@ -125,6 +119,13 @@ for fish_data1 in fish_data_sorted:
                             do_log = False
                         else:
                             db.log_new_health_status(check_date, selected_person, fish_id, new_status, notes)
+
+                    if num is not None and num != fish_data1['number_in_group']:
+                        if notes == "":
+                            st.error(f"There is a different number in group. Add a note to explain why")
+                            do_log = False
+                        else:
+                            db.log_new_number_in_group(check_date, selected_person, fish_id, num, notes)
 
                     if do_log:
                         if db.log_check(check_date, selected_person, fish_id, fed, ate, notes):
