@@ -50,7 +50,8 @@ def flatten_dict_list(d):
     return F
 
 # Fish database functions
-def get_all_fish(include_dead = False):
+def get_all_fish(include_dead = False,
+                 only_groups = False):
     """Get all fish with their tank and system information"""
 
     logger.debug('in get_all_fish')
@@ -58,15 +59,24 @@ def get_all_fish(include_dead = False):
     try:
         supabase = get_supabase_client()
 
-        response = (
+        query = (
             supabase.table('Fish')
             .select(
                 'id, species, tank, number_in_group, status, Tanks(system, shelf)'
             )
-            .neq('status', 'Dead')
-            .execute()
         )
 
+        if not include_dead:
+            query = query.neq('status', 'Dead')
+        
+        if only_groups:
+            # this doesn't work, and I don't know why
+            # query = query.not_('number_in_group', 'is', 'null')
+            # but this one is OK, so it doesn't matter
+            query = query.gt('number_in_group', 1)
+        
+        response = query.execute()
+        
         fish_list = flatten_dict_list(response.data)
 
         return fish_list
@@ -357,12 +367,15 @@ def log_new_health_status(date_time, person, fish_id, status, notes):
         return False
 
 
-def log_new_number_in_group(date_time, person, fish_id, num, notes,
-                            event_type = "Recount"):
+def log_number_in_group(date_time, person, fish_id, num, notes,
+                            event_type = "Recount", new_number=True):
     """Log a change in fish health to the database"""
 
     try:
         supabase = get_supabase_client()
+
+        if not new_number:
+            event_type = "Confirm Number"
 
         response = (
             supabase.table("Groups")

@@ -108,93 +108,6 @@ if selected_fish_idx is not None:
     selected_fish_id = fish_ids[selected_fish_idx]
     selected_fish = fish_df.iloc[selected_fish_idx]
     
-    # Display fish details
-    st.divider()
-    
-    col1, col2, col3 = st.columns(3, gap="small")
-    
-    with col1:
-        st.metric("Fish ID", selected_fish['id'])
-    with col2:
-        st.metric("Species", selected_fish['species'])
-    with col3:
-        status_color = {
-            'Diseased': '🔴',
-            'Monitor': '🟡',
-            'Healthy': '🟢'
-        }.get(selected_fish['status'], '⚪')
-        st.metric("Status", f"{status_color} {selected_fish['status']}")
-    
-    st.divider()
-    
-    # Health notes section
-    st.subheader("📝 Recent Health Notes")
-    
-    # Date range selector
-    date_range_options = {
-        "Last 7 days": 7,
-        "Last 14 days (default)": 14,
-        "Last 30 days": 30,
-        "Last 60 days": 60,
-        "Last 90 days": 90
-    }
-    
-    selected_range = st.selectbox(
-        "Select date range",
-        list(date_range_options.keys()),
-        index=1  # Default to 14 days
-    )
-    
-    days_back = date_range_options[selected_range]
-    
-    # Fetch and display health notes
-    health_notes_df = db.get_fish_health_notes(selected_fish_id, days_back)
-    
-    if not health_notes_df.empty:
-        st.success(f"Found {len(health_notes_df)} health record(s)")
-        
-        # Display each health note as a card
-        for _, note in health_notes_df.iterrows():
-            with st.container():
-                note_date = datetime.fromisoformat(note['date'].replace('Z', '+00:00'))
-                
-                # Create columns for the note header
-                note_cols = st.columns([3, 2, 2], gap="small")
-                
-                with note_cols[0]:
-                    st.markdown(f"**📅 {note_date.strftime('%Y-%m-%d %H:%M')}**")
-                with note_cols[1]:
-                    event_type = note['event_type']
-
-                    event_emoji = {
-                        'Tank Move': '🏠',
-                        'Treatment Start': '💊',
-                        'Treatment End': '✅',
-                        'Observation': '👁️',
-                        'Other': '📌'
-                    }.get(event_type, '📌')
-
-                    st.markdown(f"{event_emoji} **{event_type}**")
-                with note_cols[2]:
-                    st.markdown(f"*By: {note.get('by', 'Unknown')}*")
-                
-                # Display event-specific details
-                if note['from_tank'] and note['to_tank']:
-                    st.markdown(f"🏠 Moved from {note['from_tank']} to {note['to_tank']}")
-                
-                if note['treatment']:
-                    st.markdown(f"💊 **Treatment:** {note['treatment']}")
-                
-                if note['change_status']:
-                    st.markdown(f"👁️ **New status:** {note['change_status']}")
-                    
-                if note['notes']:
-                    st.markdown(f"**Notes:** {note['notes']}")
-                
-                st.markdown("---")
-    else:
-        st.info(f"No health records found for the selected date range ({selected_range})")
-    
     st.divider()
     
     # Log new health event section
@@ -459,3 +372,91 @@ if selected_fish_idx is not None:
                                 check_date, selected_person,
                                 selected_fish_id, 'Other',
                                 notes=notes)
+            
+        # Display fish details
+    st.divider()
+    
+    col1, col2, col3 = st.columns(3, gap="small")
+    
+    with col1:
+        st.metric("Fish ID", selected_fish['id'])
+    with col2:
+        st.metric("Species", selected_fish['species'])
+    with col3:
+        status_color = {
+            'Diseased': '🔴',
+            'Monitor': '🟡',
+            'Healthy': '🟢'
+        }.get(selected_fish['status'], '⚪')
+        st.metric("Status", f"{status_color} {selected_fish['status']}")
+    
+    st.divider()
+    
+    # Health notes section
+    st.subheader("📝 Recent Health Notes")
+    
+    # Date range selector
+    date_range_options = {
+        "Last 7 days": 7,
+        "Last 14 days (default)": 14,
+        "Last 30 days": 30,
+        "Last 60 days": 60,
+        "Last 90 days": 90
+    }
+    
+    selected_range = st.selectbox(
+        "Select date range",
+        list(date_range_options.keys()),
+        index=1  # Default to 14 days
+    )
+    
+    days_back = date_range_options[selected_range]
+    
+    # Fetch and display health notes
+    health_notes_df = db.get_fish_health_notes(selected_fish_id, days_back)
+    
+    if not health_notes_df.empty:
+        st.success(f"Found {len(health_notes_df)} health record(s)")
+        
+        # Display each health note as a card
+        for _, note in health_notes_df.iterrows():
+            with st.container():
+                note_date = datetime.fromisoformat(note['date'].replace('Z', '+00:00'))
+                
+                # Create columns for the note header
+                note_cols = st.columns([3, 2, 2], gap="small")
+                
+                with note_cols[0]:
+                    st.markdown(f"**📅 {note_date.strftime('%Y-%m-%d %H:%M')}**")
+                with note_cols[1]:
+                    event_type = note['event_type']
+
+                    event_emoji = {
+                        'Tank Move': '🏠',
+                        'Treatment Start': '💊',
+                        'Treatment End': '✅',
+                        'Observation': '👁️',
+                        'Other': '📌'
+                    }.get(event_type, '📌')
+
+                    st.markdown(f"{event_emoji} **{event_type}**")
+                with note_cols[2]:
+                    st.markdown(f"*By: {note.get('by', 'Unknown')}*")
+                
+                # Display event-specific details
+                if note['from_tank'] and note['to_tank']:
+                    st.markdown(f"🏠 Moved from {note['from_tank']} to {note['to_tank']}")
+                
+                if note['treatment']:
+                    st.markdown(f"💊 **Treatment:** {note['treatment']}")
+                
+                if note['change_status']:
+                    st.markdown(f"👁️ **New status:** {note['change_status']}")
+                    
+                if note['notes']:
+                    st.markdown(f"**Notes:** {note['notes']}")
+                
+                st.markdown("---")
+    else:
+        st.info(f"No health records found for the selected date range ({selected_range})")
+    

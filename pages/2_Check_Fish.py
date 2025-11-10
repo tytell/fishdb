@@ -125,7 +125,7 @@ for fish_data1 in fish_data_sorted:
                             st.error(f"There is a different number in group. Add a note to explain why")
                             do_log = False
                         else:
-                            db.log_new_number_in_group(check_date, selected_person, fish_id, num, notes)
+                            db.log_number_in_group(check_date, selected_person, fish_id, num, notes)
 
                     if do_log:
                         if db.log_check(check_date, selected_person, fish_id, fed, ate, notes):
