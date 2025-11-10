@@ -16,7 +16,7 @@ st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load and display fish data
 with st.spinner("Loading fish data..."):
-    fish_df = pd.DataFrame(db.get_all_fish())
+    fish_df = db.get_all_fish(return_df=True)
 
 if fish_df is not None:
     if not fish_df.empty:

@@ -22,11 +22,12 @@ def date_person_input():
     
     with personcol:
         people = db.get_all_people()
-        if st.session_state.full_name in people:
-            default_name_ind = list(people).index(st.session_state.full_name)
+        names = [p1['full_name'] for p1 in people]
+        if st.session_state.full_name in names:
+            default_name_ind = list(names).index(st.session_state.full_name)
         else:
             default_name_ind = 0
-            logger.warning(f'Username {st.session_state.full_name} not found in database')
+            logger.warning(f'Person {st.session_state.full_name} not found in database')
 
         if people:
             selected_person = st.selectbox("Person", people,

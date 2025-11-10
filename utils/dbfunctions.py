@@ -28,12 +28,21 @@ def verify_login(username, password):
         st.error(f"Database error: {e}")
         return False
 
-def stop_if_not_logged_in():
+def stop_if_not_logged_in(min_access = 0):
     # Check if user is logged in
     if 'user' not in st.session_state or st.session_state.user is None:
         st.warning("⚠️ Please login first!")
         st.info("Use the sidebar to navigate back to the Login page.")
         st.stop()
+    else:
+        people = get_all_people()
+        access = [p1['access'] for p1 in people if p1['full_name'] == st.session_state.full_name]
+        if len(access) != 1:
+            st.error("Weirdness")
+            st.stop()
+        elif access[0] < min_access:
+            st.warning("⚠️ You do not have a high enough access level for this page")
+            st.stop()
 
 def flatten_dict_list(d):
     F = []
@@ -49,21 +58,31 @@ def flatten_dict_list(d):
 
     return F
 
+# Define status priority for ordering
+health_status_order = {
+    'Diseased': 1,
+    'Monitor': 2,
+    'Healthy': 3
+}
+
 # Fish database functions
 def get_all_fish(include_dead = False,
-                 only_groups = False):
+                 only_groups = False,
+                 include_system_details = True,
+                 return_df = False):
     """Get all fish with their tank and system information"""
-
-    logger.debug('in get_all_fish')
 
     try:
         supabase = get_supabase_client()
 
+        if include_system_details:
+            sel = '*, Tanks(system, shelf, position_in_shelf)'
+        else:
+            sel = '*'
+
         query = (
             supabase.table('Fish')
-            .select(
-                'id, species, tank, number_in_group, status, Tanks(system, shelf)'
-            )
+            .select(sel)
         )
 
         if not include_dead:
@@ -79,41 +98,17 @@ def get_all_fish(include_dead = False,
         
         fish_list = flatten_dict_list(response.data)
 
-        return fish_list
     except Exception as e:
         st.error(f"Database error in get_all_fish: {e}")
-        return []
+        fish_list = []
 
-# Define status priority for ordering
-health_status_order = {
-    'Diseased': 1,
-    'Monitor': 2,
-    'Healthy': 3
-}
+    if return_df:
+        fish_list = pd.DataFrame(fish_list)
+        # Add sort key based on status priority
+        fish_list['sort_key'] = fish_list['status'].map(health_status_order).fillna(999)
+        fish_list = fish_list.sort_values(['sort_key', 'id'])
 
-def get_fish_with_health():
-    try:
-        supabase = get_supabase_client()
-
-        response = (
-            supabase.table('Fish')
-            .select(
-                'id, species, tank, status'
-            )
-            .neq('status', 'Dead')
-            .execute()
-        )
-
-        if response.data:
-            df = pd.DataFrame(response.data)
-            # Add sort key based on status priority
-            df['sort_key'] = df['status'].map(health_status_order).fillna(999)
-            df = df.sort_values(['sort_key', 'id'])
-            return df
-        return pd.DataFrame()
-    except Exception as e:
-        st.error(f"Database error in get_fish_with_health: {e}")
-        return pd.DataFrame()
+    return fish_list
 
 def get_fish_health_notes(fish_id, days_back=14):
     """Get health notes for a specific fish from the last N days"""
@@ -139,73 +134,79 @@ def get_fish_health_notes(fish_id, days_back=14):
         st.error(f"Error fetching health notes: {str(e)}")
         return pd.DataFrame()
 
-def get_all_tanks():
+def get_all_tanks(return_df = False,
+                  include_system_details = False):
     """Get all available tanks"""
 
     try:
         supabase = get_supabase_client()
 
+        if include_system_details:
+            sel = '*, Systems(name)'
+        else:
+            sel = '*'
+
         response = (
             supabase.table('Tanks')
-            .select('name','system', 'shelf', 'position_in_shelf')
+            .select(sel)
             .order('name')
             .execute()
         )
 
-        return response.data
+        ret = response.data
     except Exception as e:
         st.error(f"Database error in get_all_tanks: {e}")
-        return []
+        ret = []
 
-def get_all_systems():
+    if return_df:
+        ret = pd.DataFrame(ret)
+    return ret
+
+def get_all_from_table(table_name, order_by=None,
+                       return_df = False):
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.table(table_name)
+            .select('*')
+        )
+        if order_by:
+            response = response.order(order_by)
+        
+        ret = response.execute()
+        ret = ret.data
+        
+    except Exception as e:
+        st.error(f"Database error in get_all_from_table: {e}")
+        ret = []
+
+    if return_df:
+        ret = pd.DataFrame(ret)
+    return ret    
+
+def get_all_systems(return_df = False):
     """Get all available systems"""
 
-    try:
-        supabase = get_supabase_client()
+    return get_all_from_table('Systems', return_df=return_df)
 
-        response = (
-            supabase.table('Systems')
-            .select('name')
-            .order('name')
-            .execute()
-        )
-
-        systems = [s['name'] for s in response.data]
-    except Exception as e:
-        st.error(f"Database erro in get_all_systems: {e}")
-        return []
-
-    shortnames = dict()
-    for sys1 in systems:
-        if len(sys1) > 4:
-            nm = sys1[:4]
-        else:
-            nm = sys1
-
-        if nm in shortnames:
-            nm = nm + '1'
-        shortnames[nm] = sys1
-
-    sysnames = {v: k for k,v in shortnames.items()}
-    return sysnames
-
-def get_all_people():
+def get_all_people(return_df = False):
     """Get list of names from People table"""
-    try:
-        supabase = get_supabase_client()
 
-        response = (
-            supabase.table('People')
-            .select('full_name')
-            .order('full_name')
-            .execute()
-        )
+    return get_all_from_table('People', order_by='full_name',
+                              return_df=return_df)
 
-        people = [p1['full_name'] for p1 in response.data]
-        return people
-    except Exception as e:
-        st.error(f"Database error in get_all_people: {e}")
-        return []
+def get_all_species(return_df = False):
+    """Get all available species"""
+
+    return get_all_from_table('Species', order_by='name',
+                              return_df=return_df)
+
+def get_all_locations(return_df = False):
+    """Get all available species"""
+
+    return get_all_from_table('Locations', order_by='name',
+                              return_df=return_df)
 
 def add_tank(tank_name, tank_vol, is_hospital, system, shelf=None):
     """Add a new tank"""

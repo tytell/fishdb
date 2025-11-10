@@ -76,7 +76,7 @@ st.title("💊 Fish Health Details")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load fish data
-fish_df = db.get_fish_with_health()
+fish_df = db.get_all_fish(return_df=True)
 
 if fish_df.empty:
     st.warning("No fish found in the database.")
