@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 import logging
 from datetime import datetime, timedelta
+import re
 
 from utils.auth import get_supabase_client
 
@@ -188,8 +189,22 @@ def get_all_from_table(table_name, order_by=None,
 def get_all_systems(return_df = False):
     """Get all available systems"""
 
-    return get_all_from_table('Systems', return_df=return_df)
-
+    systems = get_all_from_table('Systems', return_df=False)
+    
+    # add a shortname that we can use as a key for the check water page
+    shortnames = set()
+    for sys1 in systems:
+        shortname1 = re.sub(r'\W|^(?=\d)', '_', sys1['name'][:5])
+        if shortname1 in shortnames:
+            shortname1 = shortname1 + '1'
+            shortnames.add(shortname1)
+        sys1['short_name'] = shortname1
+    
+    if return_df:
+        return pd.DataFrame(systems)
+    else:
+        return systems
+    
 def get_all_people(return_df = False):
     """Get list of names from People table"""
 
@@ -270,10 +285,12 @@ def log_check(date_time, person, fish_id, fed, ate, notes):
     try:
         supabase = get_supabase_client()
 
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+
         response = (
             supabase.table("Feeding")
             .insert({
-                'date': date_time,
+                'date': date_time_str,
                 'by': person,
                 'fish': fish_id,
                 'fed': fed,
@@ -288,7 +305,7 @@ def log_check(date_time, person, fish_id, fed, ate, notes):
         st.error(f"Database error: {e}")
         return False
 
-def log_health_event(date, person, fish_id, event_type, notes,
+def log_health_event(date_time, person, fish_id, event_type, notes,
                      new_status=None,
                      from_tank=None, to_tank=None,
                      treatment=None,
@@ -298,10 +315,12 @@ def log_health_event(date, person, fish_id, event_type, notes,
     try:
         supabase = get_supabase_client()
 
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+
         response = (
             supabase.table("Health")
             .insert({
-                'date': date,
+                'date': date_time_str,
                 'by': person,
                 'fish': fish_id,
                 'event_type': event_type,
@@ -342,10 +361,12 @@ def log_new_health_status(date_time, person, fish_id, status, notes):
     try:
         supabase = get_supabase_client()
 
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+
         response = (
             supabase.table("Health")
             .insert({
-                'date': date_time,
+                'date': date_time_str,
                 'by': person,
                 'event_type': 'Change Status',
                 'fish': fish_id,
@@ -378,10 +399,12 @@ def log_number_in_group(date_time, person, fish_id, num, notes,
         if not new_number:
             event_type = "Confirm Number"
 
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+
         response = (
             supabase.table("Groups")
             .insert({
-                'date': date_time,
+                'date': date_time_str,
                 'by': person,
                 'event_type': event_type,
                 'original_group': fish_id,
@@ -451,8 +474,10 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
 
         logger.debug("Before ins")
 
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+
         ins = {
-            'date': date_time,
+            'date': date_time_str,
             'by': person,
             'event_type': 'Tank Move',
             'fish': fish_id,

@@ -20,11 +20,12 @@ st.title("🐠 Check Fish")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load fish data
-fish_data = db.get_all_fish(include_dead=False)
+fish_data = db.get_all_fish(include_dead=False,
+                            return_df=True)
 tanks = db.get_all_tanks()
 tanks = [t1['name'] for t1 in tanks]
 
-if not fish_data:
+if fish_data.empty:
     st.warning("No fish found in the database.")
     st.stop()
 
@@ -37,31 +38,27 @@ check_date, selected_person = date_person_input()
 st.divider()
 
 # Sort fish based on user selection
-# sort_by = "Fish"
-# if sort_by == "Tank":
-#     fish_data_sorted = sorted(fish_data, key=lambda x: (x['tank'] or "", x['id']))
-# elif sort_by == "Shelf":
-#     fish_data_sorted = sorted(fish_data, key=lambda x: (x['shelf'] or "", x['id']))
-# else:  # Fish ID
-fish_data_sorted = sorted(fish_data, key=lambda x: x['id'])
+sort_by = st.selectbox('Sort by', ['Fish ID', 'Location'])
+if sort_by == "Location":
+    fish_data.sort_values(by = ['system', 'shelf', 'position_in_shelf'], inplace=True)
+else:  # sort by ID
+    fish_data.sort_values(by = ['id'], inplace=True)
 
 st.write("**Fish Checks:**")
 
-for fish_data1 in fish_data_sorted:
-    fish_id = fish_data1['id']
+for fish_data1 in fish_data.itertuples():
+    fish_id = fish_data1.id
     is_submitted = fish_id in st.session_state.submitted_fish
     
     # Display fish info with tank and shelf
     info_text = f"**Fish ID: {fish_id}**"
-    if fish_data1['tank']:
-        info_text += f" | Tank: {fish_data1['tank']}"
-    if fish_data1['shelf']:
-        info_text += f" | Shelf: {fish_data1['shelf']}"
+    if fish_data1.tank:
+        info_text += f" | Tank: {fish_data1.tank}"
     
     st.write(info_text)
 
-    if fish_data1['number_in_group'] is not None and \
-        fish_data1['number_in_group'] > 1:
+    if fish_data1.number_in_group is not None and \
+        fish_data1.number_in_group > 1:
         numcol, fedcol, atecol, healthcol, notescol, logcol = st.columns([1, 1, 1, 2, 3, 1],
                                                              gap='small')
     else:
@@ -85,7 +82,7 @@ for fish_data1 in fish_data_sorted:
 
     with healthcol:
         # Health status dropdown
-        current_status = fish_data1['status'] or 'Healthy'
+        current_status = fish_data1.status or 'Healthy'
         status_index = health_statuses.index(current_status) if current_status in health_statuses else 0
         new_status = st.selectbox(
             "Health",
@@ -120,7 +117,7 @@ for fish_data1 in fish_data_sorted:
                         else:
                             db.log_new_health_status(check_date, selected_person, fish_id, new_status, notes)
 
-                    if num is not None and num != fish_data1['number_in_group']:
+                    if num is not None and num != fish_data1.number_in_group:
                         if notes == "":
                             st.error(f"There is a different number in group. Add a note to explain why")
                             do_log = False

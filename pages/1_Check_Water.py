@@ -25,11 +25,13 @@ check_date, selected_person = date_person_input()
 
 # Load fish data
 systems = db.get_all_systems()
+systems = {sys1['name']: sys1['short_name'] for sys1 in systems}
+
 tanks = db.get_all_tanks()
-individual_tank_names = {t1['name']: t1['name'] for t1 in tanks if t1['system'] is None}
+individual_tanks = {t1['name']: t1['name'] for t1 in tanks if t1['system'] is None}
 
 # add individual tanks to the list of systems
-systems.update(individual_tank_names)
+systems.update(individual_tanks)
 
 if not systems:
     st.warning("No tank systems found in the database.")
@@ -42,8 +44,8 @@ st.divider()
 
 st.write("**Water Checks:**")
 
-for system, sysname in systems.items():
-    is_submitted = sysname in st.session_state.submitted_system
+for system, shortname in systems.items():
+    is_submitted = shortname in st.session_state.submitted_system
     
     # Display fish info with tank and shelf
     info_text = f"**{system}**"
@@ -60,27 +62,27 @@ for system, sysname in systems.items():
                                  disabled=is_submitted)
     
     with condcol:
-        coductivity = number_col("Conductivity", f"cond_{sysname}")
+        coductivity = number_col("Conductivity", f"cond_{shortname}")
     
     with pHcol:
-        pH = number_col("pH", f"pH_{sysname}")
+        pH = number_col("pH", f"pH_{shortname}")
     
     with ammcol:
-        amm = number_col("Ammonia", f"amm_{sysname}")
+        amm = number_col("Ammonia", f"amm_{shortname}")
 
     with nitratecol:
-        nitrate = number_col("Nitrate", f"nitrate_{sysname}")
+        nitrate = number_col("Nitrate", f"nitrate_{shortname}")
 
     with nitritecol:
-        nitrite = number_col("Nitrite", f"nitrite_{sysname}")
+        nitrite = number_col("Nitrite", f"nitrite_{shortname}")
 
     with waterxcol:
-        waterx = number_col("Water Ex", f"waterx_{sysname}")
+        waterx = number_col("Water Ex", f"waterx_{shortname}")
         
     with notescol:
         notes = st.text_input(
             "Notes", 
-            key=f"notes_{sysname}", 
+            key=f"notes_{shortname}", 
             label_visibility="collapsed", 
             placeholder="Notes..." if not is_submitted else "Submitted",
             disabled=is_submitted
@@ -88,11 +90,11 @@ for system, sysname in systems.items():
     
     with logcol:
         if is_submitted:
-            st.button("✓ Logged", key=f"btn_{sysname}", disabled=True, use_container_width=True)
+            st.button("✓ Logged", key=f"btn_{shortname}", disabled=True, use_container_width=True)
         else:
-            if st.button("Log", key=f"btn_{sysname}", type="primary", use_container_width=True):
+            if st.button("Log", key=f"btn_{shortname}", type="primary", use_container_width=True):
                 if selected_person:
-                    if system in individual_tank_names:
+                    if system in individual_tanks:
                         tank = system
                         system = None
                     else:
@@ -102,7 +104,7 @@ for system, sysname in systems.items():
 
                     if db.log_water(check_date, selected_person, system, coductivity, pH,
                                     amm, nitrate, nitrite, waterx, notes, tank=tank):
-                        st.session_state.submitted_system.add(sysname)
+                        st.session_state.submitted_system.add(shortname)
                         st.success(f"✅ Logged")
                     else:
                         st.error(f"Failed")
