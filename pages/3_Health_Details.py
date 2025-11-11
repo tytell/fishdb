@@ -24,6 +24,7 @@ def submit_health_event(log_text,
                         date, person, selected_fish_id, event_type, notes,
                         treatment_details=None, 
                         from_tank=None, to_tank=None,
+                        new_status=None,
                         death_status=None):    
 
     col1, col2 = st.columns([3, 1], gap="small")
@@ -58,9 +59,10 @@ def submit_health_event(log_text,
                 st.error(f"❌ {error}")
         else:
             success = db.log_health_event(
-                date=date, person=person,
+                date_time=date, person=person,
                 fish_id=selected_fish_id,
                 event_type=event_type,
+                new_status=new_status,
                 from_tank=from_tank,
                 to_tank=to_tank,
                 treatment=treatment_details,
@@ -71,6 +73,21 @@ def submit_health_event(log_text,
             if success:
                 st.balloons()
                 st.rerun()
+
+def get_update_status(fish_data1, key='update_status'):
+    current_status = fish_data1.status or 'Healthy'
+    status_index = health_statuses.index(current_status) if current_status in health_statuses else 0
+    new_status = st.selectbox(
+        "Update Health Status",
+        health_status_colors,
+        index=status_index,
+        key=key
+    )
+    new_status = health_status_colors[new_status]    
+
+    if new_status != current_status:
+        return new_status
+    return None
 
 st.title("💊 Fish Health Details")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
@@ -127,7 +144,9 @@ if selected_fish_idx is not None:
     with obs_tab:
         st.markdown("#### Daily Health Observation")
         st.info("Record routine health checks, behavior changes, and general observations")
-        
+
+        update_status = get_update_status(selected_fish, key='update_status_obs')
+
         with st.form("observation_form", clear_on_submit=True):
             notes = st.text_area(
                 "Observations and Notes *",
@@ -139,7 +158,8 @@ if selected_fish_idx is not None:
             
             submit_health_event("👁️ Log Observation",
                                 check_date, selected_person,
-                                selected_fish_id, 'Observation', notes)
+                                selected_fish_id, 'Observation', notes,
+                                new_status=update_status)
 
     # TAB 2: TANK MOVE
     with move_tab:
@@ -150,12 +170,11 @@ if selected_fish_idx is not None:
         tanks = db.get_all_tanks()
         tank_names = [t1['name'] for t1 in tanks]
         cur_tank = selected_fish['tank']
-        other_tanks = copy(tank_names)
-        other_tanks.remove(cur_tank)
+        tank_options = copy(tank_names)
+        tank_options.remove(cur_tank)
 
-        # Create tank options list with "New Tank" option
-        tank_options = other_tanks + ["➕ New Tank"]
-                    
+        st.info(f"**Current tank**: {cur_tank}")
+
         selected_tank = st.selectbox(
             "Select Destination Tank *",
             tank_options,
@@ -163,59 +182,8 @@ if selected_fish_idx is not None:
             key="tank_move_selector"
         )
         
-        # If "New Tank" is selected, show new tank creation fields
-        if selected_tank == "➕ New Tank":
-            st.markdown("---")
-            st.markdown("##### Create New Tank")
+        update_status = get_update_status(selected_fish, key='update_status_move')
 
-            systems = db.get_all_systems()
-            
-            col1, col2, col3, col4, col5 = st.columns([2, 1, 1, 2, 1], gap="small")
-            
-            with col1:
-                new_tank_name = st.text_input(
-                    "New Tank Name *",
-                    placeholder="e.g., M14, H3",
-                    help="Enter a unique name for the new tank",
-                    key="new_tank_name_input"
-                )
-            
-            with col2:
-                new_tank_volume = st.number_input(
-                    "Volume (Liters) *",
-                    min_value=0.0,
-                    max_value=10000.0,
-                    value=100.0,
-                    step=10.0,
-                    help="Tank capacity in liters",
-                    key="new_tank_volume_input"
-                )
-            
-            with col3:
-                is_hospital = st.checkbox(
-                    "🏥 Hospital tank",
-                    value=True,
-                    help="Check if this tank is used for quarantine or treatment",
-                    key="new_tank_hospital_checkbox"
-                )
-            
-            with col4:
-                new_tank_system = st.selectbox("System", systems, help="Tank system if not a hospital tank",
-                             key="new_tank_system",
-                             disabled=is_hospital)
-                
-            with col5:
-                new_tank_shelf = st.number_input("Shelf", min_value=1,
-                                                 help="Shelf in system if not a hospital tank",
-                                                 key="new_tank_shelf")
-        else:
-            new_tank_name = None
-            new_tank_volume = None
-            is_hospital = False
-            new_tank_system = None
-
-        st.markdown("---")
-        
         with st.form("tank_move_form", clear_on_submit=True):
             notes = st.text_area(
                 "Reason for Tank Move *",
@@ -240,44 +208,21 @@ if selected_fish_idx is not None:
                 clear = st.form_submit_button("🗑️ Clear", use_container_width=True)
             
             if submit:
-                errors = []
-
-                if selected_tank == "➕ New Tank":
-                    is_new_tank = True
-                    if not new_tank_name or not new_tank_name.strip():
-                        errors.append("New tank name is required")
-                    if new_tank_volume is None or new_tank_volume <= 0:
-                        errors.append("Tank volume must be greater than 0")
-
-                else:
-                     new_tank_name = selected_tank
-                     is_new_tank = False
-                     new_tank_shelf = None
-                     new_tank_volume = None
-                
-                if errors:
-                    for error in errors:
-                        st.error(f"❌ {error}")
-                else:                    
-                    success = db.move_fish_to_tank(check_date, person=selected_person,
-                                                   notes=notes,
-                                        fish_id=selected_fish_id,
-                                        is_new_tank=is_new_tank,
-                                        to_tank=new_tank_name,
-                                        system=new_tank_system,
-                                        shelf=new_tank_shelf,
-                                        new_tank_volume=new_tank_volume)
-                             
-                    if success:
-                        st.balloons()
-                        st.rerun()
+                success = db.move_fish_to_tank(check_date, person=selected_person,
+                                                to_tank=selected_tank, notes=notes,
+                                    fish_id=selected_fish_id, new_status=update_status)                            
+                if success:
+                    st.balloons()
+                    st.rerun()
 
                
     # TAB 3: TREATMENT START
     with treat_start_tab:
         st.markdown("#### Begin New Treatment")
         st.info("Record the start of medication or treatment protocol")
-        
+
+        update_status = get_update_status(selected_fish, key='update_status_start_treat')
+
         with st.form("treatment_start_form", clear_on_submit=True):
             treatment_details = st.text_area(
                 "Treatment Details *",
@@ -298,6 +243,7 @@ if selected_fish_idx is not None:
             submit_health_event("💊 Start Treatment",
                                 check_date, selected_person,
                                 selected_fish_id, 'Start Treatment',
+                                new_status=update_status,
                                 notes=notes, 
                                 treatment_details=treatment_details)
 
@@ -307,6 +253,8 @@ if selected_fish_idx is not None:
         st.markdown("#### Complete Treatment")
         st.info("Record the completion of a treatment protocol and document results")
         
+        update_status = get_update_status(selected_fish, key='update_status_end_treat')
+
         with st.form("treatment_end_form", clear_on_submit=True):
             treatment_details = st.text_area(
                 "Treatment Summary *",
@@ -326,12 +274,13 @@ if selected_fish_idx is not None:
             
             submit_health_event("✅ Complete Treatment", check_date, selected_person,
                                     selected_fish_id, 'End Treatment',
+                                    new_status=update_status,
                                     notes=notes, 
                                     treatment_details=treatment_details)
     
     # TAB 5: DEATH
     with death_tab:
-        st.markdown("#### Begin New Treatment")
+        st.markdown("#### Record a fish death")
         st.info("Describe the death of a fish")
         
         with st.form("death_form", clear_on_submit=True):
@@ -359,6 +308,8 @@ if selected_fish_idx is not None:
         st.markdown("#### Other Health Event")
         st.info("Record any other health-related events that don't fit the above categories")
         
+        update_status = get_update_status(selected_fish, key='update_status_other')
+
         with st.form("other_event_form", clear_on_submit=True):
             notes = st.text_area(
                 "Detailed Notes *",
@@ -371,6 +322,7 @@ if selected_fish_idx is not None:
             submit_health_event("📌 Log Other Event",
                                 check_date, selected_person,
                                 selected_fish_id, 'Other',
+                                new_status=update_status,
                                 notes=notes)
             
         # Display fish details
@@ -384,7 +336,7 @@ if selected_fish_idx is not None:
         st.metric("Species", selected_fish['species'])
     with col3:
         status_color = {
-            'Diseased': '🔴',
+            'Sick': '🔴',
             'Monitor': '🟡',
             'Healthy': '🟢'
         }.get(selected_fish['status'], '⚪')

@@ -61,7 +61,7 @@ def flatten_dict_list(d):
 
 # Define status priority for ordering
 health_status_order = {
-    'Diseased': 1,
+    'Sick': 1,
     'Monitor': 2,
     'Healthy': 3
 }
@@ -136,7 +136,8 @@ def get_fish_health_notes(fish_id, days_back=14):
         return pd.DataFrame()
 
 def get_all_tanks(return_df = False,
-                  include_system_details = False):
+                  include_system_details = False,
+                  only_active = False):
     """Get all available tanks"""
 
     try:
@@ -147,12 +148,16 @@ def get_all_tanks(return_df = False,
         else:
             sel = '*'
 
-        response = (
+        query = (
             supabase.table('Tanks')
             .select(sel)
-            .order('name')
-            .execute()
         )
+
+        if only_active:
+            query = query.eq('active', True)
+        
+        query = query.order('name')
+        response = query.execute()
 
         ret = response.data
     except Exception as e:
@@ -222,6 +227,28 @@ def get_all_locations(return_df = False):
 
     return get_all_from_table('Locations', order_by='name',
                               return_df=return_df)
+
+def add_tanks(new_tanks_df):
+    """Add several new tanks, stored in a Pandas dataframe"""
+
+    supabase = get_supabase_client()
+
+    changes_made = False
+    errors = []
+    for idx, row in new_tanks_df.iterrows():
+        try:
+            insert_data = row.to_dict()
+            
+            # Convert NaN to None
+            insert_data = {k: (None if pd.isna(v) else v) for k, v in insert_data.items()}
+
+            response = supabase.table('Tanks').insert(insert_data).execute()
+            if response.data:
+                changes_made = True
+        except Exception as e:
+            errors.append(f"Error inserting new row (name = {row['name']}): {str(e)}")
+    
+    return changes_made, errors
 
 def add_tank(tank_name, tank_vol, is_hospital, system, shelf=None):
     """Add a new tank"""
@@ -428,10 +455,6 @@ def log_number_in_group(date_time, person, fish_id, num, notes,
 
 
 def move_fish_to_tank(date_time, person, fish_id, to_tank, notes, 
-                      is_new_tank=False,
-                      new_tank_volume=None,
-                      is_hospital=True, 
-                      system=None, shelf=None, position_in_shelf=None,
                       new_status=None):
     """Move a fish to a different tank"""
 
@@ -453,24 +476,6 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
             return False
         
         cur_tank = response.data[0]['tank']
-
-        if is_new_tank:
-            if is_hospital:
-                system=None
-
-            logger.debug('About to insert tank')
-            response = (
-                supabase.table("Tanks")
-                .insert({
-                    'name': to_tank,
-                    'system': system,
-                    'volume': float(new_tank_volume) if new_tank_volume else None,
-                    'shelf': int(shelf) if shelf else None,
-                    'position_in_shelf': int(position_in_shelf) if position_in_shelf else None
-                })
-                .execute()
-            )
-            logger.debug(f"after insert new tank. {response=}")
 
         logger.debug("Before ins")
 

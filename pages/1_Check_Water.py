@@ -28,7 +28,7 @@ systems = db.get_all_systems()
 systems = {sys1['name']: sys1['short_name'] for sys1 in systems}
 
 tanks = db.get_all_tanks()
-individual_tanks = {t1['name']: t1['name'] for t1 in tanks if t1['system'] is None}
+individual_tanks = {t1['name']: t1['name'] for t1 in tanks if t1['is_hospital'] or (t1['system'] is None)}
 
 # add individual tanks to the list of systems
 systems.update(individual_tanks)
