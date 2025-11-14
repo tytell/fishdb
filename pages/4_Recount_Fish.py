@@ -23,11 +23,12 @@ st.subheader(f"Logged in as: {st.session_state.full_name}")
 
 # Load fish data
 # Load fish data
-fish_data = db.get_all_fish(include_dead=False, only_groups=True)
+fish_data = db.get_all_fish(include_dead=False, only_groups=True,
+                            return_df=True)
 tanks = db.get_all_tanks()
 tanks = [t1['name'] for t1 in tanks]
 
-if not fish_data:
+if fish_data.empty:
     st.warning("No fish found in the database.")
     st.stop()
 
@@ -39,26 +40,30 @@ check_date, selected_person = date_person_input()
 
 st.divider()
 
+# Sort fish based on user selection
+sort_by = st.selectbox('Sort by', ['Fish ID', 'Location'])
+if sort_by == "Location":
+    fish_data.sort_values(by = ['system', 'shelf', 'position_in_shelf'], inplace=True)
+else:  # sort by ID
+    fish_data.sort_values(by = ['id'], inplace=True)
+
 st.write("**Recount fish:**")
 
-for fish_data1 in fish_data:
-    fish_id = fish_data1['id']
+for fish_data1 in fish_data.itertuples():
+    fish_id = fish_data1.id
     is_submitted = fish_id in st.session_state.submitted_fish
     
     # Display fish info with tank and shelf
     info_text = f"**Fish ID: {fish_id}**"
-    if fish_data1['tank']:
-        info_text += f" | Tank: {fish_data1['tank']}"
-    if fish_data1['shelf']:
-        info_text += f" | Shelf: {fish_data1['shelf']}"
+    if fish_data1.tank:
+        info_text += f" | Tank: {fish_data1.tank}"
     
     st.write(info_text)
 
-    numcol, notescol, logcol = st.columns([1, 3, 1],
-                                                             gap='small')
+    numcol, notescol, logcol = st.columns([1, 3, 1], gap='small')
     
     with numcol:
-        num = st.number_input("Number", min_value=1, value=fish_data1['number_in_group'],
+        num = st.number_input("Number", min_value=1, value=fish_data1.number_in_group,
                                 disabled=is_submitted, help="Number of fish in group",
                                 placeholder='Number')
 
@@ -76,12 +81,12 @@ for fish_data1 in fish_data:
             st.button("✓ Logged", key=f"btn_{fish_id}", disabled=True, use_container_width=True)
         else:
             if st.button("Log", key=f"btn_{fish_id}", type="primary", use_container_width=True):
-                is_new_number = num != fish_data1['number_in_group']
+                is_new_number = num != fish_data1.number_in_group
                 if is_new_number and notes == "":
                     st.error(f"There is a different number in group. Add a note to explain why")
                 else:
                     if db.log_number_in_group(check_date, selected_person, fish_id, num, notes,
-                                              is_new_number=is_new_number):
+                                              new_number=is_new_number):
                         st.session_state.submitted_fish.add(fish_id)
                         st.success(f"✅ Logged")
                     else:
