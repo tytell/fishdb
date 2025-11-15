@@ -178,18 +178,28 @@ def get_tanks_without_fish(return_df = False):
         tanks = (
             supabase.table('Fish')
             .select('tank', count='exact')
+            .neq('tank', None)
             .execute()
         )
+
+        tanks = [t1['tank'] for t1 in tanks.data]
+
+        # tankstr = ','.join(tanks)
+        # tankstr = '(' + tankstr + ')'
 
         response = (
             supabase.table('Tanks')
             .select('*')
-            .not_.in_('name', tanks.data)
+            # not clear why we can't filter this way
+            # .not_.in_('name', tankstr)
             .order('name')
             .execute()
         )
 
-        ret = response.data
+        tanks_without_fish = [t1 for t1 in response.data if t1['name'] not in tanks]            
+        logger.debug(f"tanks without fish: {[t1['name'] for t1 in tanks_without_fish]}")
+
+        ret = tanks_without_fish
     except Exception as e:
         st.error(f"Database error in get_tanks_without_fish: {e}")
         ret = []
@@ -252,10 +262,10 @@ def get_all_species(return_df = False):
     return get_all_from_table('Species', order_by='name',
                               return_df=return_df)
 
-def get_all_locations(return_df = False):
-    """Get all available species"""
+def get_all_collections(return_df = False):
+    """Get all collections"""
 
-    return get_all_from_table('Locations', order_by='name',
+    return get_all_from_table('Collections', order_by='name',
                               return_df=return_df)
 
 def add_tanks(new_tanks_df):
@@ -306,32 +316,30 @@ def add_tank(tank_name, tank_vol, is_hospital, system, shelf=None):
         st.error(f"Database error in add_tank: {e}")
         return False
 
-def add_location(location_name, street_address, phone_number=None, url=None,
-                 town=None, water_body=None):
-    """Add a new location"""
+def add_fish(new_fish_df):
+    """Add several new fish, stored in a Pandas dataframe"""
 
-    try:
-        supabase = get_supabase_client()
+    supabase = get_supabase_client()
 
-        response = (
-            supabase.table("Locations")
-            .insert({
-                'name': location_name,
-                'street_address': street_address,
-                'phone_number': phone_number,
-                'url': url,
-                'town': town,
-                'water_body': water_body
-            })
-            .execute()
-        )
-        return True
+    changes_made = False
+    errors = []
+    for idx, row in new_fish_df.iterrows():
+        try:
+            insert_data = row.to_dict()
+            
+            insert_data = {k: (None if pd.isna(v) else v) for k, v in insert_data.items()}
+            
+            response = supabase.table('Fish').insert(insert_data).execute()
+            if response.data:
+                changes_made = True
+        except Exception as e:
+            errors.append(f"Error inserting new row (name = {row['id']}): {str(e)}")
+    
+    return changes_made, errors
 
-    except Exception as e:
-        st.error(f"Database error in add_location: {e}")
-        return False
-
-def add_collection_event(date_time, person, fish, total_length, location, latitude, longitude, 
+def add_collection(date_time, person, name, latitude=None, longitude=None, 
+                   street_address=None, town=None, water_body=None,
+                   phone_number=None, url=None, is_commercial=None,
                          sampling_gear=None, seine_length=None, number_of_tries=None,
                          water_temp=None, water_conductivity=None, water_pH=None, water_flow_speed=None,
                          notes=None):
@@ -345,9 +353,12 @@ def add_collection_event(date_time, person, fish, total_length, location, latitu
             .insert({
                 'date': date_time_str,
                 'by': person,
-                'fish': fish,
-                'total_length': total_length,
-                'location': location,
+                'name': name,
+                'street_address': street_address,
+                'town': town,
+                'water_body': water_body,
+                'phone_number': phone_number,
+                'url': url,
                 'latitude': latitude,
                 'longitude': longitude,
                 'sampling_gear': sampling_gear,
@@ -357,15 +368,16 @@ def add_collection_event(date_time, person, fish, total_length, location, latitu
                 'water_conductivity': water_conductivity,
                 'water_ph': water_pH,
                 'water_flow_speed': water_flow_speed,
-                'notes': notes
+                'notes': notes,
+                'is_commercial': is_commercial
             })
             .execute()
         )
 
-        return True
+        return response.data[0]['id']
     except Exception as e:
         st.error(f"Database error: {e}")
-        return False
+        return None
     
 def log_water(date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes, tank=None):
     """Log a water quality check to the database"""

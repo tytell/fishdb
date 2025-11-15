@@ -7,18 +7,20 @@ import utils.dbfunctions as db
 logger = logging.getLogger('__name__')
 logger.setLevel(logging.DEBUG)
 
-def date_person_input():
+def date_person_input(key=''):
     # Top row with Date and Person
     datecol, timecol, personcol = st.columns(3, gap='small')
 
     with datecol:
         check_date = st.date_input(
             "Date",
-            value="today"
+            value="today",
+            key=f'date_input_{key}'
         )
 
     with timecol:
-        check_time = st.time_input("Time", value = "now")
+        check_time = st.time_input("Time", value = "now",
+                                    key=f'time_input_{key}')
     
     with personcol:
         people = db.get_all_people()
@@ -31,7 +33,8 @@ def date_person_input():
 
         if people:
             selected_person = st.selectbox("Person", names,
-                                        index = default_name_ind)
+                                        index = default_name_ind,
+                                        key=f'person_input_{key}')
         else:
             st.warning("No people found in People table")
             selected_person = None

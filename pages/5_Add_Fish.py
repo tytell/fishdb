@@ -90,43 +90,57 @@ with st.expander("📋 Add Tanks", expanded=False):
                         st.error(error)
                 elif added:
                     st.success("✅ New tanks added successfully!")
+                    st.rerun()
 
-locations = db.get_all_locations()
-locationnames = [loc['name'] for loc in locations]
+collections = db.get_all_collections()
+# make it a set to ignore duplicates
+order_names = {c['name'] for c in collections if c['is_commercial']}
+order_names = list(order_names)
+order_names.append('➕ New Commercial Source')
+order_names.append('🎣 New Collection')
 
-location_options = copy(locationnames)
-location_options.append("➕ New location")
+selected_collection = st.selectbox('Received fish from', options=order_names)
 
-location = st.selectbox('General location', options=location_options)
+collect_date, collect_person = date_person_input()
+notes = st.text_input('Notes')
 
-is_new_location = False
-with st.expander("📋 Add Location", expanded=(location == "➕ New location")):
-    is_new_location = True
-    collname = st.text_input('Name', placeholder='Name')
-        
-    addresscol, phonecol, urlcol = st.columns(3, gap='small')
+with st.expander("📋 Add Commercial Source", expanded=selected_collection == '➕ New Commercial Source'):
+    source_name = st.text_input('Name', placeholder='Name of business or person',
+                                key='source_name')
+    
+    addresscol, towncol = st.columns(2, gap='small')
     with addresscol:
-        address = st.text_input('Address', placeholder='Nearest street address')
+        address = st.text_input('Address', placeholder='Street address',
+                            key='commercial_address')
+    with towncol:
+        town = st.text_input('Town', placeholder='Town',
+                                key='commercial_town')
+
+    phonecol, urlcol = st.columns(2, gap='small')
     with phonecol:
         phone = st.text_input('Phone number', placeholder='Phone number',
-                            help='Phone number if from a business')
+                            help='Phone number')
     with urlcol:
         url = st.text_input('URL', placeholder='URL',
-                            help='Web link if from a business')
+                            help='Web link')
 
-    towncol, waterbodycol = st.columns(2, gap='small')
+
+with st.expander("📋 Add Collection", expanded=selected_collection == '➕ Add new collection'):
+    st.info('All the fish listed below will be identified as being collected at this location. If you collected them at multiple locations, add them separately')
+
+    collname = st.text_input('Name', placeholder='Name')
+        
+    addresscol, towncol, waterbodycol = st.columns(3, gap='small')
+    with addresscol:
+        address = st.text_input('Address', placeholder='Nearest street address',
+                            key='collection_address')
     with towncol:
-        town = st.text_input('Town', placeholder='Town')
+        town = st.text_input('Town', placeholder='Town',
+                                key='collection_town')
     with waterbodycol:
         waterbody = st.text_input('Water body', placeholder='Water body')
 
-is_collection_details = False
-with st.expander("📋 Add Collection Details", expanded=True):
-    is_collection_details = True
-    
-    st.info('All the fish listed below will be identified as being collected at this location. If you collected them at multiple locations, add them separately')
-
-    collect_date, collect_person = date_person_input()
+    collect_date, collect_person = date_person_input(key='collection')
 
     st.markdown("##### Exact location")
     latcol, longcol = st.columns(2, gap='small')
@@ -154,80 +168,34 @@ with st.expander("📋 Add Collection Details", expanded=True):
         pH = st.number_input('pH', placeholder='pH')
     with speedcol:
         speed = st.text_input('Speed', placeholder='Description (fast, slow, still) or number')
-    
-    st.text_input('Notes')
-
-if is_collection_details and location != "➕ New location":
-    button_name = "🎣 Save New Collection"
-else:
-    button_name = "💾 Save New Location"
-
-if st.button(button_name, key="save_collection", type="primary", width='stretch'):
-    if location == "➕ New location":
-        if not collname:
-            st.error("Please provide a name for the new location")
-        elif collname in locationnames:
-            st.error("Location name must be unique. Please choose a different name.")
-        else:
-            with st.spinner("Saving new location..."):
-                if db.add_location(
-                    name=collname,
-                    street_address=address,
-                    phone_number=phone,
-                    url=url,
-                    town=town,
-                    water_body=waterbody
-                ):
-                    st.success("✅ New location added successfully!")
-    
-    if is_collection_details:
-        with st.spinner("Saving new collection..."):
-            if db.add_collection(
-                location_name=location,
-                date=collect_date,
-                collected_by=collect_person,
-                water_body=waterbody,
-                town=town,
-                latitude=latitude,
-                longitude=longitude,
-                gear=gear,
-                effort=effort,
-                temperature=temperature,
-                conductivity=conductivity,
-                pH=pH,
-                speed=speed
-            ):
-                st.success("✅ New collection added successfully!")
 
 # get tanks again if they were updated
 cur_tanks = db.get_tanks_without_fish()
 cur_tank_names = [t1['name'] for t1 in cur_tanks]
 
-# get locations again if they were updated
-locations_df = db.get_all_locations(return_df=True)
-
 species = db.get_all_species()
-species_options = []
+species_options = {}
 for s1 in species:
     if s1['common_name']:
-        species_options.append(f"{s1['name']} ({s1['common_name']})")
+        disp_name = f"{s1['name']} ({s1['common_name']})"
     else:
-        species_options.append(s1['name'])
+        disp_name = s1['name']
+    species_options[disp_name] = s1['name']
 
 # Configure column settings
 column_config = {
     'id': st.column_config.TextColumn('ID', required=True, max_chars=100,
                                         help='Unique ID for each fish or group of fish',
                                         pinned=True),
-    'species': st.column_config.SelectboxColumn('Species', options=list(species_options), 
+    'species': st.column_config.SelectboxColumn('Species', options=list(species_options.keys()), 
                                                 required=True,
                                                 help='Select species name'),
     'tank': st.column_config.SelectboxColumn('Tank', options=cur_tank_names,
                                                 required=True,
                                                 help='Select tank'),
     'status': st.column_config.SelectboxColumn('Status', options=health_statuses, default='Quarantine'),
-    'from': st.column_config.SelectboxColumn('From', options=list(locations_df['name']),
-                                                help='Select where the fish was acquired or collected'),
+    # 'from': st.column_config.SelectboxColumn('From', options=list(locations_df['name']),
+    #                                             help='Select where the fish was acquired or collected'),
     'number_in_group': st.column_config.NumberColumn('Number', 
                                                         format="%d",
                                                         min_value=int(1),
@@ -241,7 +209,7 @@ new_fish_df = pd.DataFrame(data = {
     'species': pd.Series(dtype='str'),
     'tank': pd.Series(dtype='str'),
     'status': pd.Series(dtype='str'),
-    'from': pd.Series(dtype='str'),
+    # 'from': pd.Series(dtype='str'),
     'number_in_group': pd.Series(dtype='int'),
 })
 
@@ -252,9 +220,68 @@ new_fish_df = st.data_editor(new_fish_df,
     key="fish_editor",
     hide_index=True
 )
+
 if st.button("💾 Save New Fish", key="save_fish", type="primary", width='stretch'):
+    with st.spinner("Adding collection..."):
+        # save collection / commercial source
+        if selected_collection == '➕ New Commercial Source':
+            collection_id = db.add_collection(
+                date_time=collect_date,
+                person=collect_person,
+                name=source_name,
+                street_address=address,
+                town=town,
+                phone_number=phone,
+                url=url,
+                notes=notes,
+                is_commercial=True
+            )
+        elif selected_collection == '🎣 New Collection':
+            collection_id = db.add_collection(
+                date_time=collect_date,
+                person=collect_person,
+                name=collname,
+                street_address=address,
+                town=town,
+                water_body=waterbody,
+                latitude=latitude,
+                longitude=longitude,
+                sampling_gear=gear,
+                number_of_tries=effort,
+                water_temp=temperature,
+                water_conductivity=conductivity,
+                water_pH=pH,
+                water_flow_speed=speed,
+                notes=notes,
+                is_commercial=False
+            )
+        else:
+            collect_num = [i for i, c in enumerate(collections) if c['name'] == selected_collection][0]
+
+            collection_id = db.add_collection(
+                date_time=collect_date,
+                person=collect_person,
+                name=selected_collection,
+                street_address=collections[collect_num]['street_address'],
+                town=collections[collect_num]['town'],
+                phone_number=collections[collect_num]['phone_number'],
+                url=collections[collect_num]['url'],
+                notes=notes,
+                is_commercial=True
+            )
+
+    if collection_id is None:
+        st.error("Error adding collection. Fish not added.")
+        st.stop()
+
+    new_fish_df['number_in_group'] = new_fish_df['number_in_group'].fillna(1).astype(int)   
+    new_fish_df['collection'] = collection_id
+
+    new_fish_df['species'] = new_fish_df['species'].map(species_options)
+
     # validate fish
-    cur_fish_ids = db.get_all_fish_ids()
+    cur_fish = db.get_all_fish()
+    cur_fish_ids = {f1['id'] for f1 in cur_fish}
     badid = [row.id for row in new_fish_df.itertuples() if row.id in cur_fish_ids]
 
     if len(badid) > 0:
