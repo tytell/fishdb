@@ -197,7 +197,6 @@ def get_tanks_without_fish(return_df = False):
         )
 
         tanks_without_fish = [t1 for t1 in response.data if t1['name'] not in tanks]            
-        logger.debug(f"tanks without fish: {[t1['name'] for t1 in tanks_without_fish]}")
 
         ret = tanks_without_fish
     except Exception as e:
@@ -288,6 +287,49 @@ def add_tanks(new_tanks_df):
         except Exception as e:
             errors.append(f"Error inserting new row (name = {row['name']}): {str(e)}")
     
+    return changes_made, errors
+
+def update_tanks(updated_tanks_df):
+    """Update several tanks, stored in a Pandas dataframe"""
+
+    supabase = get_supabase_client()
+
+    cur_tanks_df = get_all_tanks(return_df=True)
+    assert cur_tanks_df.shape[0] == updated_tanks_df.shape[0], \
+        "Updated tanks should have the same number of rows as current tanks"
+
+    common_cols = [col for col in cur_tanks_df.columns if col in updated_tanks_df.columns]
+
+    errors = []
+    changes_made = False
+    for idx in updated_tanks_df.index:
+        if idx in cur_tanks_df.index:
+            row_id = updated_tanks_df.loc[idx, 'name']
+            original_row = cur_tanks_df.loc[idx, common_cols]
+            edited_row = updated_tanks_df.loc[idx, common_cols]
+            
+            # Check if row has changed
+            if not original_row.equals(edited_row):
+                try:
+                    # Prepare update data (exclude id and timestamp columns)
+                    update_data = edited_row.to_dict()
+                    exclude_cols = ['name']
+                    update_data = {k: v for k, v in update_data.items() if k not in exclude_cols}
+                    
+                    # Convert NaN to None
+                    update_data = {k: (None if pd.isna(v) else v) for k, v in update_data.items()}
+                    
+                    response = (
+                        supabase.table('Tanks')
+                        .update(update_data)
+                        .eq('name', row_id)
+                        .execute()
+                    )
+                    if response.data:
+                        changes_made = True
+                except Exception as e:
+                    errors.append(f"Error updating row {row_id}: {str(e)}")
+
     return changes_made, errors
 
 def add_tank(tank_name, tank_vol, is_hospital, system, shelf=None):
