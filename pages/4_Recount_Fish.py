@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 import logging
 from copy import copy
+import pandas as pd
 
 from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
@@ -21,7 +22,6 @@ apply_custom_css()
 st.title("📊 Recount Fish")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
 
-# Load fish data
 # Load fish data
 fish_data = db.get_all_fish(include_dead=False, only_groups=True,
                             return_df=True)
@@ -49,6 +49,7 @@ else:  # sort by ID
 
 st.write("**Recount fish:**")
 
+logger.debug(f"{fish_data=}")
 for fish_data1 in fish_data.itertuples():
     fish_id = fish_data1.id
     is_submitted = fish_id in st.session_state.submitted_fish
@@ -65,7 +66,8 @@ for fish_data1 in fish_data.itertuples():
     with numcol:
         num = st.number_input("Number", min_value=1, value=fish_data1.number_in_group,
                                 disabled=is_submitted, help="Number of fish in group",
-                                placeholder='Number')
+                                placeholder='Number',
+                                key=f"num_{fish_id}")
 
     with notescol:
         notes = st.text_input(
@@ -105,4 +107,145 @@ for fish_data1 in fish_data.itertuples():
             unsafe_allow_html=True
         )
     
-    st.divider()
+st.divider()
+
+with st.expander("Split or Merge Groups", expanded=False):
+    splittab, mergetab = st.tabs(["Split Group", "Merge Groups"])
+
+    with splittab:
+        st.write("**Split a group into two or more groups:**")
+
+        fish_data = db.get_all_fish(include_dead=False, only_groups=True,
+                                    return_df=True)
+        tanks = db.get_tanks_without_fish()
+        tank_names = [t1['name'] for t1 in tanks]
+
+        groupcol, numcol = st.columns([1, 2], gap='small')
+
+        with groupcol:
+            group_id = st.selectbox("Select original group to split",
+                                        options=[f1.id for f1 in fish_data.itertuples()],
+                                        disabled=is_submitted,
+                                        help="Original fish group to split",
+                                        placeholder='Original Group')
+        with numcol:
+            original_number = fish_data[fish_data['id'] == group_id]['number_in_group'].values[0]
+            st.write(f"**Original number in group:** {original_number}")
+
+        original_fish_data = fish_data[fish_data['id'] == group_id]
+        original_fish_data['number_in_group'] = original_fish_data['number_in_group'].astype(int)
+
+        tank_options = copy(tank_names)
+        tank_options.append(original_fish_data['tank'].values[0])
+        logger.debug(f"{tank_options=}")
+
+        # Configure column settings
+        column_config = {
+            'id': st.column_config.TextColumn('ID', required=True, max_chars=100,
+                                                help='Unique ID for each new group',
+                                                pinned=True),
+            'tank': st.column_config.SelectboxColumn('Tank', options=tank_options,
+                                                        required=True,
+                                                        help='Select tank'),
+            'status': st.column_config.SelectboxColumn('Status', options=health_statuses, default='Healthy'),
+            'number_in_group': st.column_config.NumberColumn('Number', 
+                                                                format="%d",
+                                                                min_value=int(1),
+                                                                step=int(1),
+                                                                help='Number of fish in the group',
+                                                                default=int(1))
+        }
+
+        new_group_df = original_fish_data[['id', 'tank', 'status', 'number_in_group']].copy()
+        new_group_df.reset_index(drop=True, inplace=True)
+
+        logger.debug(f"{type(new_group_df)}: {new_group_df=}")
+
+        new_group_df = st.data_editor(new_group_df,
+            column_config=column_config,
+            num_rows="dynamic",
+            width="stretch",
+            key="fish_editor",
+            hide_index=True
+        )        
+        split_notes = st.text_area("Split Notes",
+                                    key=f"split_notes_{group_id}",
+                                    placeholder="Notes about the split...")
+        
+        if st.button("Split Group", key=f"split_btn_{group_id}", type="primary",
+                    use_container_width=True):
+            if len(new_group_df) < 2:
+                st.error("Must split into at least 2 groups")
+                st.stop()
+            elif len(new_group_df) > 4:
+                st.error("Cannot split into more than 4 groups in one step")
+                st.stop()
+            elif sum(new_group_df['number_in_group']) != original_fish_data['number_in_group'].astype(int).values[0]:
+                st.error("The total number in new groups must equal the original group's number")
+                st.stop()
+            
+            new_group_df['species'] = original_fish_data['species'].values[0]
+            new_group_df['collection'] = original_fish_data['collection'].values[0]
+
+            good, errors = db.split_group(group_id, new_group_df, selected_person, check_date, split_notes)
+            if good:
+                st.session_state.submitted_fish.add(group_id)
+                st.success("✅ Group split successfully")
+            else:
+                st.error("Failed to split group")
+                for error in errors:
+                    st.error(error)
+
+    with mergetab:
+        st.write("**Merge two or more groups into one group:**")
+
+        fish_data = db.get_all_fish(include_dead=False, only_groups=True,
+                                    return_df=True)
+
+        selected_groups = st.multiselect(
+            "Select groups to merge",
+            options=[f1.id for f1 in fish_data.itertuples()],
+            help="Select two or more fish groups to merge",
+            default=[],
+            key="merge_groups_select"
+        )
+
+        if len(selected_groups) >= 2:
+            merged_species = fish_data[fish_data['id'].isin(selected_groups)]['species'].unique()
+            if len(merged_species) > 1:
+                st.error("Selected groups must be of the same species to merge")
+                st.stop()
+
+            total_number = fish_data[fish_data['id'].isin(selected_groups)]['number_in_group'].sum()
+            st.write(f"**Total number in merged group:** {total_number}")
+
+            new_group_id = st.text_input("New Group ID",
+                                        key="new_merged_group_id",
+                                        placeholder="Enter new group ID for merged group...")
+            merge_notes = st.text_area("Merge Notes",
+                                        key=f"merge_notes",
+                                        placeholder="Notes about the merge...")
+
+            if st.button("Merge Groups", type="primary", use_container_width=True):
+                if new_group_id.strip() == "":
+                    st.error("New Group ID cannot be empty")
+                    st.stop()
+                if not db.check_unique_fish_id(new_group_id):
+                    st.error("New Group ID must be unique")
+                    st.stop()
+                if len(selected_groups) < 2:
+                    st.error("Select two or more groups to merge")
+                    st.stop()
+                elif len(selected_groups) > 4:
+                    st.error("Cannot merge more than 4 groups in one step")
+                    st.stop()
+
+                good, error = db.merge_groups(selected_groups, new_group_id=new_group_id, number_in_group=total_number,
+                                              person=selected_person, date_time=check_date, 
+                                              notes=merge_notes)
+                if good:
+                    st.success("✅ Groups merged successfully")
+                else:
+                    st.error(f"Failed to merge groups: {error}")
+        else:
+            st.info("Select two or more groups to enable merging.")
