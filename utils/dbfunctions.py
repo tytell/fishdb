@@ -421,7 +421,55 @@ def add_collection(date_time, person, name, latitude=None, longitude=None,
     except Exception as e:
         st.error(f"Database error: {e}")
         return None
-    
+
+def log_maintenance(date_time, person, task, system, notes):
+    """Log a maintenance task to the database"""
+    try:
+        supabase = get_supabase_client()
+
+        date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
+        if system == "":
+            system = None
+        response = (
+            supabase.table("Maintenance")
+            .insert({
+                'date': date_time_str,
+                'by': person,
+                'task': task,
+                'system': system,
+                'notes': notes
+            })
+            .execute()
+        )
+
+        return True
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return False
+
+def get_maintenance_logs(days_back=14):
+    """Get maintenance logs from the last N days"""
+    try:
+        cutoff_date = (datetime.now() - timedelta(days=days_back)).isoformat()
+
+        logger.debug('in get_maintenance_logs')
+
+        supabase = get_supabase_client()
+        response = (
+            supabase.table('Maintenance')
+            .select('*')
+            .gte('date', cutoff_date)
+            .order('date', desc=True)
+            .execute()
+        )
+
+        if response.data:
+            return pd.DataFrame(response.data)
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error fetching maintenance logs: {str(e)}")
+        return pd.DataFrame()
+        
 def log_water(date_time, person, system, conductivity, pH, ammonia, nitrate, nitrite, waterx, notes, tank=None):
     """Log a water quality check to the database"""
     try:
@@ -601,8 +649,6 @@ def log_number_in_group(date_time, person, fish_id, num, notes,
 def split_group(group_id, new_group_df, person, date_time, notes=None):
     """Split a fish group into multiple groups"""
 
-    logger.debug("in split_group")
-
     errors = []
     try:
         supabase = get_supabase_client()
@@ -620,10 +666,8 @@ def split_group(group_id, new_group_df, person, date_time, notes=None):
                     .execute()
                 )
             else:
-                insert_data = row.to_dict()
-                
+                insert_data = row.to_dict()                
                 insert_data = {k: (None if pd.isna(v) else v) for k, v in insert_data.items()}
-                logger.debug(f"{insert_data}")
 
                 response = supabase.table('Fish').insert(insert_data).execute()
 
@@ -640,8 +684,6 @@ def split_group(group_id, new_group_df, person, date_time, notes=None):
         for i, new_id in enumerate(new_group_ids):
             insert_data[f'group_{i+1}'] = new_id
 
-        logger.debug(f"Insert in Groups: {insert_data=}")
-
         response = supabase.table('Groups').insert(insert_data).execute()
         if not response.data:
             errors.append(f"Failed to split group {group_id} into groups {', '.join(new_group_ids)}")
@@ -657,15 +699,11 @@ def split_group(group_id, new_group_df, person, date_time, notes=None):
 def merge_groups(original_group_ids, new_group_id, number_in_group, person, date_time, notes=None):
     """Merge multiple fish groups into a single group"""
 
-    logger.debug("in merge_groups")
-
     errors = []
     try:
         supabase = get_supabase_client()
 
         date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
-
-        logger.debug(f"zeroing out original groups: {original_group_ids=}")
 
         for group_id in original_group_ids:
             response = (
@@ -675,11 +713,9 @@ def merge_groups(original_group_ids, new_group_id, number_in_group, person, date
                 .execute()
             )
 
-        logger.debug(f"{response.data}")
         insert_data = copy(response.data[0])
         insert_data['id'] = new_group_id
         insert_data['number_in_group'] = int(number_in_group)
-        logger.debug(f"insert new group: {insert_data=}")
 
         response = (
             supabase.table("Fish")
@@ -696,8 +732,6 @@ def merge_groups(original_group_ids, new_group_id, number_in_group, person, date
         }
         for i, old_id in enumerate(original_group_ids):
             insert_data[f'group_{i+1}'] = old_id
-
-        logger.debug(f"Insert in Groups: {insert_data=}")
 
         response = supabase.table('Groups').insert(insert_data).execute()
         if not response.data:
@@ -736,8 +770,6 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
                       new_status=None):
     """Move a fish to a different tank"""
 
-    logger.debug("in move_fish_to_tank")
-
     try:
         supabase = get_supabase_client()
 
@@ -748,14 +780,11 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
             .execute()
         )
 
-        logger.debug(f"after select tank. {response=}")
         if not response.data:
             st.error(f"Fish {fish_id} not in the database")
             return False
         
         cur_tank = response.data[0]['tank']
-
-        logger.debug("Before ins")
 
         date_time_str = date_time.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -777,22 +806,18 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
             ins.update({'change_status': new_status})
             upd.update({'status': new_status})
 
-        logger.debug(f"{ins=}")
         response = (
             supabase.table("Health")
             .insert(ins)
             .execute()
         )
-        logger.debug(f"{response=}")
 
-        logger.debug(f"{upd=}")
         response = (
             supabase.table("Fish")
             .update(upd)
             .eq('id', fish_id)
             .execute()
         )
-        logger.debug(f"{response=}")
         return True
 
     except Exception as e:
