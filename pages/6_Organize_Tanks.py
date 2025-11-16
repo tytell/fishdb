@@ -53,15 +53,28 @@ tank_column_config = {
 
 st.header("Current Tanks")
 
-sortcol, _ = st.columns([1,4])
+sortcol, renumbercol, _ = st.columns([1,1,4])
 with sortcol:
     sort_by = st.button("Sort by Shelf and Position", key="sort_tanks")
+with renumbercol:
+    renumber = st.button("Renumber Shelf Positions", key="renumber_tanks",
+                        help="Renumber positions on each shelf from left to right starting at 1")
 
 if sort_by:
-    sorted_tanks_df = st.session_state.cur_tanks_df.sort_values(by=['shelf', 'position_in_shelf'])
+    sorted_tanks_df = st.session_state.cur_tanks_df.sort_values(by=['system','shelf', 'position_in_shelf'])
 else:
     sorted_tanks_df = st.session_state.cur_tanks_df
-    
+
+if renumber:
+    sorted_tanks_df = st.session_state.cur_tanks_df.sort_values(by=['system','shelf', 'position_in_shelf'])
+    for system in sorted_tanks_df['system'].unique():
+        system_mask = sorted_tanks_df['system'] == system
+
+        for shelf in sorted_tanks_df.loc[system_mask, 'shelf'].unique():
+            shelf_mask = sorted_tanks_df['shelf'] == shelf
+            n_on_shelf = (system_mask & shelf_mask).sum()
+            sorted_tanks_df.loc[system_mask & shelf_mask, 'position_in_shelf'] = range(1, n_on_shelf + 1)
+
 updated_tanks_df = st.data_editor(sorted_tanks_df,
     column_config=tank_column_config,
     num_rows="fixed",
