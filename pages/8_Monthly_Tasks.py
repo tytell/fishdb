@@ -6,6 +6,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,10 @@ for task in tasks:
     
     st.divider()
 
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()
+
 # Previous maintenance logs
 st.subheader("📋 Previous Maintenance Logs")
 
@@ -133,7 +138,7 @@ if not maintenance_logs_df.empty:
                 st.markdown(f"**📅 {maint_date.strftime('%Y-%m-%d %H:%M')}**")
             with maint_cols[1]:
                 event_type = maint['task']
-                st.text(f"**{event_type}**")
+                st.markdown(f"**{event_type}**")
 
             with maint_cols[2]:
                 st.markdown(f"*By: {maint.get('by', 'Unknown')}*")

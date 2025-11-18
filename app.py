@@ -27,23 +27,12 @@ if 'session' not in st.session_state:
 if 'full_name' not in st.session_state:
     st.session_state.full_name = None
 
-# Get database
-
-# parser = argparse.ArgumentParser(
-#     description='FishDB Streamlit app')
-# parser.add_argument('--bypass_login', help='Bypass login screen for testing')
-
-# args = parser.parse_args()
-
-# # Get database connection
-# if args.bypass_login:
-#     st.session_state.logged_in = True
-#     st.session_state.user = args.bypass_login
-
 apply_custom_css()
 
 # Main login page
-st.title("🔐 Login System")
+st.title("Tytell Lab Fish Database")
+
+st.subheader("🔐 Login")
 
 if st.session_state.user is None:
     st.subheader("Please login to continue")
@@ -141,6 +130,8 @@ else:
         
         with othercol:
             st.markdown("**Other:**")     
+            if st.button("Record Experiment"):
+                st.switch_page('pages/9_Experiment.py')
             if st.button("Organize tanks"):
                 st.switch_page('pages/6_Organize_Tanks.py')
             if st.button("Add fish"):

@@ -8,6 +8,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -249,3 +250,10 @@ with st.expander("Split or Merge Groups", expanded=False):
                     st.error(f"Failed to merge groups: {error}")
         else:
             st.info("Select two or more groups to enable merging.")
+
+if st.button("Next (Organize Tanks)"):
+    st.switch_page('pages/6_Organize_Tanks.py')
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()

@@ -6,6 +6,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,8 @@ for fish_data1 in fish_data.itertuples():
         with numcol:
             num = st.number_input("Number", min_value=1, value=None,
                                   disabled=is_submitted, help="Number of fish in group",
-                                  label_visibility='collapsed', placeholder='Number')
+                                  label_visibility='collapsed', placeholder='Number',
+                                  key=f"num_{fish_id}")
     else:
         num = None
 
@@ -147,3 +149,11 @@ for fish_data1 in fish_data.itertuples():
         )
     
     st.divider()
+
+if st.button("Next (Log health details if needed)"):
+    st.switch_page('pages/3_Health_Details.py')
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()
+

@@ -8,6 +8,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -147,3 +148,7 @@ if st.button("💾 Update Tanks", key="save_tanks", type="primary", width='stret
                 if 'new_tank_editor' in st.session_state:
                     del st.session_state['new_tank_editor']
                 st.rerun()
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()

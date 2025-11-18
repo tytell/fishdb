@@ -6,6 +6,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 
@@ -105,3 +106,7 @@ if not exp_data.empty:
 
 else:
     st.info("No experiments recorded for this fish.")
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()

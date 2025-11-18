@@ -6,6 +6,7 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,13 @@ for task in tasks:
     
     st.divider()
 
+if st.button("Next (Recount Fish)"):
+    st.switch_page('pages/5_Recount_Fish.py')
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()
+
 # Previous maintenance logs
 st.subheader("📋 Previous Maintenance Logs")
 
@@ -123,7 +131,7 @@ days_back = date_range_options[selected_range]
 maintenance_logs_df = db.get_maintenance_logs(days_back=days_back)
 
 if not maintenance_logs_df.empty:
-    st.success(f"Found {len(maintenance_logs_df)} health record(s)")
+    st.success(f"Found {len(maintenance_logs_df)} maintenance record(s)")
     
     # Display each health note as a card
     for _, maint in maintenance_logs_df.iterrows():
@@ -137,7 +145,7 @@ if not maintenance_logs_df.empty:
                 st.markdown(f"**📅 {maint_date.strftime('%Y-%m-%d %H:%M')}**")
             with maint_cols[1]:
                 event_type = maint['task']
-                st.text(f"**{event_type}**")
+                st.markdown(f"**{event_type}**")
 
             with maint_cols[2]:
                 st.markdown(f"*By: {maint.get('by', 'Unknown')}*")
