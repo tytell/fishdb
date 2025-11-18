@@ -268,6 +268,12 @@ def get_all_collections(return_df = False):
     return get_all_from_table('Collections', order_by='name',
                               return_df=return_df)
 
+def get_all_experiments(return_df = False):
+    """Get all experiments"""
+
+    return get_all_from_table('Experiments', order_by='date',
+                              return_df=return_df)
+
 def add_tanks(new_tanks_df):
     """Add several new tanks, stored in a Pandas dataframe"""
 
@@ -820,6 +826,66 @@ def move_fish_to_tank(date_time, person, fish_id, to_tank, notes,
         )
         return True
 
+    except Exception as e:
+        st.error(f"Database error: {e}")
+        return False
+
+def record_experiment(fish_id, project, project_description, experiment_description,
+                      date, person, is_terminal, n_fish=1):
+    """Record a new experiment"""
+
+    try:
+        supabase = get_supabase_client()
+
+        date_str = date.strftime('%Y-%m-%d %H:%M:%S')
+
+        response = (
+            supabase.table("Experiments")
+            .insert({
+                'fish': fish_id,
+                'project': project,
+                'project_description': project_description,
+                'experiment_description': experiment_description,
+                'date': date_str,
+                'by': person,
+                'is_terminal': is_terminal,
+                'n_fish': n_fish
+            })
+            .execute()
+        )
+
+        if is_terminal:
+            response = (
+                supabase.table("Fish")
+                .select("*")
+                .eq('id', fish_id)
+                .execute()
+            )
+
+            if not response.data:
+                st.error(f"Fish {fish_id} not found in database")
+                return False
+            
+            fish_data = response.data[0]
+            if fish_data['number_in_group'] is not None and fish_data['number_in_group'] > 1:
+                new_number = fish_data['number_in_group'] - n_fish
+                response = (
+                    supabase.table("Fish")
+                    .update({'number_in_group': new_number})
+                    .eq('id', fish_id)
+                    .execute()
+                )
+            else:
+                response = (
+                    supabase.table("Fish")
+                    .update({'status': 'Dead',
+                             'number_in_group': 0,
+                            'tank': None})
+                    .eq('id', fish_id)
+                    .execute()
+                )
+
+        return True
     except Exception as e:
         st.error(f"Database error: {e}")
         return False

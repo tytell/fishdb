@@ -120,12 +120,34 @@ else:
 
     else:
         st.success(f"Welcome, {st.session_state.full_name}!")
+
+        dailycol, weeklycol, othercol = st.columns(3, gap='large')
+
+        with dailycol:
+            st.markdown("**Daily Tasks:**")     
+            if st.button("Check water"):
+                st.switch_page('pages/1_Check_Water.py')
+            if st.button("Check fish"):
+                st.switch_page('pages/2_Check_Fish.py')
+            if st.button("Log health details"):
+                st.switch_page('pages/3_Health_Details.py')
+
+        with weeklycol:
+            st.markdown("**Weekly Tasks:**")     
+            if st.button("Weekly tasks"):
+                st.switch_page('pages/4_Weekly_Tasks.py')
+            if st.button("Recount Fish"):
+                st.switch_page('pages/5_Recount_Fish.py')
         
-        if st.button("Check water"):
-            st.switch_page('pages/1_Check_Water.py')
-        if st.button("Check fish"):
-            st.switch_page('pages/2_Check_Fish.py')
-            
+        with othercol:
+            st.markdown("**Other:**")     
+            if st.button("Organize tanks"):
+                st.switch_page('pages/6_Organize_Tanks.py')
+            if st.button("Add fish"):
+                st.switch_page('pages/7_Add_Fish.py')
+            if st.button("Monthly tasks"):
+                st.switch_page('pages/8_Monthly_Tasks.py')
+
         if st.button("Logout"):
             auth.logout()
             st.rerun()
