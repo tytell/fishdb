@@ -10,23 +10,20 @@ from utils.date_person import date_person_input
 logger = logging.getLogger(__name__)
 
 # Page configuration
-st.set_page_config(page_title="Weekly Tasks", page_icon="🗓️", layout="wide")
+st.set_page_config(page_title="Monthly Tasks", page_icon="🗓️", layout="wide")
 
 db.stop_if_not_logged_in()
 
 apply_custom_css()
 
-st.title("🗓️ Weekly Tasks")
+st.title("🗓️ Monthly Tasks")
 st.subheader(f"Logged in as: {st.session_state.full_name}")
 
-tasks = ['Recount Fish',
-         'Rinse Filter Pad',
-         'Rotate Biofilter',
-         'Scrub Tanks',
-         'Refill pH and Conductivity Reservoirs',
-         'Mix New Net Soak',
-         'Clean Floor',
-         'Check Logging Computer']
+tasks = ['Change carbon',
+         'Change mechanical filter',
+         'Calibrate pH probe',
+         'Calibrate conductivity probe',
+         'Check alarm thresholds']
 
 systems = db.get_all_systems()
 system_names = [s1['name'] for s1 in systems]
