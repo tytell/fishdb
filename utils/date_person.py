@@ -5,7 +5,7 @@ import logging
 import utils.dbfunctions as db
 
 logger = logging.getLogger('__name__')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 def date_person_input(key=''):
     # Top row with Date and Person

@@ -7,9 +7,10 @@ from utils.settings import health_statuses, health_status_colors
 import utils.dbfunctions as db
 from utils.formatting import apply_custom_css
 from utils.date_person import date_person_input
+import utils.auth as auth
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Page configuration
 st.set_page_config(page_title="Fish Health", page_icon="💊", layout="wide")
@@ -412,3 +413,9 @@ if selected_fish_idx is not None:
     else:
         st.info(f"No health records found for the selected date range ({selected_range})")
     
+if st.button("Next (Weekly tasks)"):
+    st.switch_page('pages/4_Weekly_Tasks.py')
+
+if st.button("Done and Logout"):
+    auth.sign_out()
+    st.rerun()

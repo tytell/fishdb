@@ -8,13 +8,11 @@ logging.basicConfig(level=logging.WARNING,
                     format='%(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 from utils.dbfunctions import verify_login
 import utils.auth as auth
 from utils.formatting import apply_custom_css
-
-logger.debug('Starting!')
 
 # Page configuration
 st.set_page_config(page_title="Login System", page_icon="🔐")

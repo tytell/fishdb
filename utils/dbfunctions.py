@@ -10,7 +10,7 @@ from copy import copy
 from utils.auth import get_supabase_client
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 def hash_password(password):
     """Hash password using SHA256"""

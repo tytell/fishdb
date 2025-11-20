@@ -9,7 +9,7 @@ from utils.date_person import date_person_input
 import utils.auth as auth
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Page configuration
 st.set_page_config(page_title="Check Water", page_icon="💧", layout="wide")
