@@ -167,9 +167,9 @@ if selected_fish_idx is not None:
         st.markdown("#### Move Fish to Different Tank")
         st.info("Record tank transfers and automatically update the fish's current location")
         
-        # Get list of existing tanks
-        tanks = db.get_all_tanks()
-        tank_names = [t1['name'] for t1 in tanks]
+        # Get list of existing tanks without fish
+        tanks = db.get_all_tanks(only_active=False)
+        tank_names = [t1['name'] for t1 in tanks if t1['fish'] is None or t1['number_in_group'] == 0]
         cur_tank = selected_fish['tank']
         tank_options = copy(tank_names)
         tank_options.remove(cur_tank)

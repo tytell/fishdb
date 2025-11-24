@@ -85,7 +85,9 @@ for fish_data1 in fish_data.itertuples():
         else:
             if st.button("Log", key=f"btn_{fish_id}", type="primary", use_container_width=True):
                 is_new_number = num != fish_data1.number_in_group
-                if is_new_number and notes == "":
+                if num == 0 and notes == "":
+                    st.error(f"Add a note to explain why you're removing this fish group")
+                elif is_new_number and notes == "":
                     st.error(f"There is a different number in group. Add a note to explain why")
                 else:
                     if db.log_number_in_group(check_date, selected_person, fish_id, num, notes,

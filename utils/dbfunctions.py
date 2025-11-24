@@ -10,7 +10,7 @@ from copy import copy
 from utils.auth import get_supabase_client
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 def hash_password(password):
     """Hash password using SHA256"""
@@ -67,6 +67,25 @@ health_status_order = {
     'Healthy': 3
 }
 
+# List all of the tables in the database
+def get_all_table_names():
+    # it turns out supabase doesn't have an API to list tables...
+
+    table_names = ['Collections',
+                   'Experiments',
+                   'Fish',
+                   'Feeding',
+                   'Groups',
+                   'Health',
+                   'Locations',
+                   'Maintenance',
+                   'People',
+                   'Species',
+                   'Systems',
+                   'Tanks',
+                   'WaterQuality']
+    return table_names
+    
 # Fish database functions
 def get_all_fish(include_dead = False,
                  only_groups = False,
@@ -111,6 +130,44 @@ def get_all_fish(include_dead = False,
         fish_list = fish_list.sort_values(['sort_key', 'id'])
 
     return fish_list
+
+def check_fish_in_same_tank():
+    """Get any fish that are in the same tank as another fish.
+    Fish with distinct IDs should not be in the same tank."""
+    
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.table('Fish')
+            .select('id, tank', count='exact')
+            .neq('tank', None)
+            .execute()
+        )
+        logger.debug(f"{response.data=}")
+
+        tank_fish = {}
+        for d1 in response.data:
+            t1 = d1['tank']
+            if t1 in tank_fish:
+                tank_fish[t1].append(d1['id'])
+            else:
+                tank_fish[t1] = [d1['id']]
+
+        logger.debug(f"{tank_fish=}")
+
+        tanks_with_multiple_fish = {}
+        for t1, fish_list in tank_fish.items():
+            if len(fish_list) > 1:
+                tanks_with_multiple_fish[t1] = fish_list
+        logger.debug(f"{tanks_with_multiple_fish=}")
+
+        return tanks_with_multiple_fish
+
+    except Exception as e:
+        st.error(f"Database error in check_fish_in_same_tank: {e}")
+        return dict()
+
 
 def get_fish_health_notes(fish_id, days_back=14):
     """Get health notes for a specific fish from the last N days"""
@@ -563,6 +620,7 @@ def log_health_event(date_time, person, fish_id, event_type, notes,
         upd = {}
         if death_status is not None:
             upd = {'status': 'Dead',
+                   'number_in_group': 0,
                     'tank': None}
         elif new_status is not None:
             upd = {'status': new_status}

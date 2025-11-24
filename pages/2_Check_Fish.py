@@ -150,6 +150,16 @@ for fish_data1 in fish_data.itertuples():
     
     st.divider()
 
+fish_in_same_tank = db.check_fish_in_same_tank()
+
+if fish_in_same_tank:
+    st.warning("⚠️ Some fish are recorded in the same tank. Please verify their locations in the 'Health Details' page.")
+    for t1, fish_list in fish_in_same_tank.items():
+        st.write(f"**Tank {t1}:** " + ", ".join(fish_list))
+        
+    if st.button("Go to Health Details"):
+        st.switch_page('pages/3_Health_Details.py')
+
 if st.button("Next (Log health details if needed)"):
     st.switch_page('pages/3_Health_Details.py')
 
