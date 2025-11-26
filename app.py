@@ -63,20 +63,23 @@ if st.session_state.user is None:
             submit = st.form_submit_button("Sign Up")
             
             if submit:
-                if auth.check_duplicate_email(email):
-                    st.error("An account with this email already exists. Please reset your password instead.")
-                    st.stop()
-                    
-                if email and password and password_confirm:
-                    if password == password_confirm:
-                        if len(password) >= 8:
-                            auth.sign_up(email, password)
-                        else:
-                            st.error("Password must be at least 8 characters long")
-                    else:
-                        st.error("Passwords do not match")
-                else:
-                    st.error("Please fill in all fields")
+                errors = []
+                if not email or not password or not password_confirm:
+                    errors.append('Please fill in all fields.')
+
+                if password != password_confirm:
+                    errors.append('Passwords do not match.')
+
+                if len(password) < 8:
+                    errors.append('Password must be at least 8 characters long.')
+
+                if len(errors) == 0:
+                    if not auth.sign_up(email, password):
+                        errors.append('Error creating account. The email may already be in use.')   
+                
+                if errors:
+                    for error in errors:
+                        st.error(error)
     
     with tab3:
         st.subheader("Reset Password")

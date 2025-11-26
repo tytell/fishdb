@@ -5,6 +5,7 @@ import logging
 import utils.dbfunctions as db
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # Initialize Supabase client
 @st.cache_resource
@@ -50,27 +51,6 @@ def sign_in(email: str, password: str):
         st.error(f"Error during sign in: {str(e)}")
         return False
 
-def check_duplicate_email(email: str) -> bool:
-    """Check if an email already exists in the supabase auth users"""
-    try:
-        supabase = get_supabase_client()
-
-        response = (
-            supabase.auth.admin.list_users(
-                filter=f"email=eq.{email}"
-            )
-        )
-
-        logger.debug(f"check_duplicate_email: {response=}")
-        if response.data and len(response.data) > 0:
-            return True
-        else:
-            return False
-    except Exception as e:
-        logger.debug(f"Error: {str(e)}")
-        st.error(f"Error checking duplicate email: {str(e)}")
-        return False
-    
 def sign_up(email: str, password: str):
     """Sign up a new user"""
     try:
@@ -79,6 +59,8 @@ def sign_up(email: str, password: str):
             "email": email,
             "password": password
         })
+        logger.debug(f"sign_up: {response=}")
+        
         if response.user:
             st.success("✅ Sign up successful! Please check your email to verify your account, then sign in.")
             return True
