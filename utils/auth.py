@@ -50,6 +50,27 @@ def sign_in(email: str, password: str):
         st.error(f"Error during sign in: {str(e)}")
         return False
 
+def check_duplicate_email(email: str) -> bool:
+    """Check if an email already exists in the supabase auth users"""
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.auth.admin.list_users(
+                filter=f"email=eq.{email}"
+            )
+        )
+
+        logger.debug(f"check_duplicate_email: {response=}")
+        if response.data and len(response.data) > 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        logger.debug(f"Error: {str(e)}")
+        st.error(f"Error checking duplicate email: {str(e)}")
+        return False
+    
 def sign_up(email: str, password: str):
     """Sign up a new user"""
     try:
@@ -68,6 +89,28 @@ def sign_up(email: str, password: str):
         st.error(f"Error during sign up: {str(e)}")
         return False
 
+def check_duplicate_full_name(full_name: str) -> bool:
+    """Check if a full name already exists in the People table"""
+    try:
+        supabase = get_supabase_client()
+
+        response = (
+            supabase.table('People')
+            .select('full_name')
+            .eq('full_name', full_name)
+            .execute()
+        )
+
+        logger.debug(f"check_duplicate_full_name: {response=}")
+        if response.data and len(response.data) > 0:
+            return True
+        else:
+            return False
+    except Exception as e:
+        logger.debug(f"Error: {str(e)}")
+        st.error(f"Error checking duplicate full name: {str(e)}")
+        return False
+    
 def add_update_person(full_name: str, level: str, phone: str, nontuftsemail: str,
                    access = 3, active = True):
     """Adds a person or updates their information"""
@@ -77,7 +120,7 @@ def add_update_person(full_name: str, level: str, phone: str, nontuftsemail: str
         add_person = (
             supabase.table("People")
             .upsert({
-                'id': st.session_state.user.id,
+                'login_id': st.session_state.user.id,
                 'full_name': full_name,
                 'level': level,
                 'mobile_phone': phone,
@@ -107,9 +150,9 @@ def get_full_name():
         response = (
             supabase.table('People')
             .select(
-                'full_name, id'
+                'full_name, login_id'
             )
-            .eq('id', st.session_state.user.id)
+            .eq('login_id', st.session_state.user.id)
             .execute()
         )
 
