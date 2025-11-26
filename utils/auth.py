@@ -60,7 +60,7 @@ def sign_up(email: str, password: str):
             "password": password
         })
         logger.debug(f"sign_up: {response=}")
-        
+
         if response.user:
             st.success("✅ Sign up successful! Please check your email to verify your account, then sign in.")
             return True
@@ -110,7 +110,7 @@ def add_update_person(full_name: str, level: str, phone: str, nontuftsemail: str
                 'active': True,
                 'access': access
             },
-            on_conflict='id')
+            on_conflict='login_id')
             .execute()
         )
 
